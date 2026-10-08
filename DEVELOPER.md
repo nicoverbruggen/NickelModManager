@@ -8,7 +8,7 @@ sh tools/build.sh
 
 Start Docker. The build wrapper uses POSIX shell; CMake embeds the shutdown script and icon licence. Icon geometry is ordinary C++ source, so there is no SVG converter or Python dependency. The script builds both packages with the public [kobuild](https://github.com/nicoverbruggen/kobuild) SDK images, `ghcr.io/nicoverbruggen/kobuild:qt5-v0.1.0` and `ghcr.io/nicoverbruggen/kobuild:qt6-v0.1.0`. Qt5 targets firmware 4.x; Qt6 targets firmware 5.x and 6.x. No local Qt SDK is required.
 
-Qt6 support for firmware 5.x and 6.x is under active development and is not included in releases. The Qt6 build commands and restoration behavior below describe that development work.
+Releases include the Qt5 package for firmware 4.x from 4.23 and the Qt6 package for firmware 6.0. Firmware 5.x uses the same Qt6 build but remains experimental.
 
 To build only Qt6:
 
@@ -167,9 +167,9 @@ A normal `sh tools/build.sh` excludes tests and probes. `--test` enables tests a
 
 ## Continuous integration and releases
 
-`.github/workflows/checks.yml` runs on every push to `main` or `develop` and on pull requests. It runs `sh tools/build.sh --qt 5 --test` and `sh tools/build.sh --qt 6 --test`, the same commands as a local build, and uploads the Qt5 `KoboRoot.tgz` as the `NickelModManager` artifact. Support for firmware 5.x and 6.x is under development, so the Qt6 job only keeps the shared source building and tested; it uploads nothing.
+`.github/workflows/checks.yml` runs on every push to `main` or `develop` and on pull requests. It runs `sh tools/build.sh --qt 5 --test` and `sh tools/build.sh --qt 6 --test`, the same commands as a local build. It uploads Qt5 `KoboRoot.tgz` as the `NickelModManager` artifact and Qt6 `Kobo.tgz` as `NickelModManager-Qt6`. Each upload fails if its package is missing.
 
-A tag build passes the tag to `tools/build.sh` as the version, so the released library shows it on the details page. To release, add a `## vX.Y.Z` section to `CHANGELOG.md` and push a matching `vX.Y.Z` tag. `.github/workflows/release.yml` runs the checks, refuses a tag without a changelog section, and publishes `KoboRoot.tgz` with that section as the release notes.
+A tag build passes the tag to `tools/build.sh` as the version, so the released library shows it on the details page. To release, rename the `Unreleased` section in `CHANGELOG.md` to the chosen version, such as `## vX.Y.Z`, and push the matching tag. `.github/workflows/release.yml` waits for both build and test jobs, downloads both artifacts, refuses a tag without release notes, and publishes `KoboRoot.tgz` and `Kobo.tgz`. A missing package fails the release. Both packages contain only the manager library, with the paths required by their firmware; they do not include other mods.
 
 ## Qt6 device test of the restore hook
 

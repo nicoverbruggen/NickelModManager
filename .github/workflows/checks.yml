@@ -34,9 +34,7 @@ jobs:
           if-no-files-found: error
 
   qt6:
-    # Firmware 5.x and 6.x support is under development and not released yet.
-    # Building and testing it keeps the shared source compiling for Qt 6.5.
-    name: Qt6 (firmware 5.x and 6.x, in development)
+    name: Qt6 (firmware 6.0)
     runs-on: ubuntu-latest
 
     steps:
@@ -49,3 +47,10 @@ jobs:
         run: sh tools/build.sh --qt 6 --test
         env:
           NMM_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: NickelModManager-Qt6
+          path: build/qt6/Kobo.tgz
+          if-no-files-found: error

@@ -19,10 +19,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Download artifact
+      - name: Download Qt5 artifact
         uses: actions/download-artifact@v6
         with:
           name: NickelModManager
+
+      - name: Download Qt6 artifact
+        uses: actions/download-artifact@v6
+        with:
+          name: NickelModManager-Qt6
 
       - name: Extract release notes from CHANGELOG.md
         run: |
@@ -39,11 +44,13 @@ jobs:
             exit 1
           fi
 
-      # Only the firmware 4.x package is released for now.
       - name: Create release
         uses: softprops/action-gh-release@v3
         with:
           draft: false
           name: ${{ github.ref_name }}
           body_path: release-notes.md
-          files: KoboRoot.tgz
+          fail_on_unmatched_files: true
+          files: |
+            KoboRoot.tgz
+            Kobo.tgz
