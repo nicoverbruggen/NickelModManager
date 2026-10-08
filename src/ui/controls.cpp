@@ -321,7 +321,7 @@ void Divider::paintEvent(QPaintEvent *) {
 
 Header::Header(const Context &context, QWidget *parent) : QWidget(parent), context_(context) {
     // An arrow without a caption, and the page title large and centred in
-    // Nickel's serif.
+    // Nickel's title font.
     back = new ActionButton(QString(), context, this);
     back->setObjectName("nmmBack");
     back->setAccessibleName("Back");

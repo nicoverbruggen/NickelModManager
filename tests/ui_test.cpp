@@ -47,7 +47,15 @@ void checkSystemFonts() {
     CHECK(both.serif == "Rakuten Serif" && both.sans == "Rakuten Sans");
     const auto mixed = systemFonts({"Georgia", "Rakuten Sans"});
     CHECK(mixed.serif == "Georgia" && mixed.sans == "Rakuten Sans");
-    const auto unknown = systemFonts({});
+    const auto tolino = systemFonts({"Bariol", "Rakuten Serif", "Rakuten Sans"}, "Bariol");
+    CHECK(tolino.serif == "Bariol" && tolino.sans == "Bariol");
+    const auto kobo = systemFonts({"Bariol", "Rakuten Serif", "Rakuten Sans"}, "Rakuten Serif");
+    CHECK(kobo.serif == "Rakuten Serif" && kobo.sans == "Rakuten Sans");
+    const auto missingTolino = systemFonts({"Rakuten Serif", "Rakuten Sans"}, "Bariol");
+    CHECK(missingTolino.serif == "Rakuten Serif" && missingTolino.sans == "Rakuten Sans");
+    const auto tolinoCase = systemFonts({"bariol"}, "BARIOL");
+    CHECK(tolinoCase.serif == "Bariol" && tolinoCase.sans == "Bariol");
+    const auto unknown = systemFonts(QStringList{});
     CHECK(unknown.serif == "DefaultSerif" && unknown.sans == "DefaultSansSerif");
 }
 } // namespace

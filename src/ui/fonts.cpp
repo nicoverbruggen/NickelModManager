@@ -16,9 +16,17 @@ QString selectFamily(const QStringList &families, const QString &modern,
 }
 } // namespace
 
-SystemFonts systemFonts(const QStringList &families) {
+SystemFonts systemFonts(const QStringList &families, const QString &menuFamily) {
+    if (menuFamily.compare("Bariol", Qt::CaseInsensitive) == 0 &&
+        families.contains("Bariol", Qt::CaseInsensitive)) {
+        return {"Bariol", "Bariol"};
+    }
     return {selectFamily(families, "Rakuten Serif", "Georgia", "DefaultSerif"),
             selectFamily(families, "Rakuten Sans", "Avenir Next", "DefaultSansSerif")};
+}
+
+SystemFonts systemFonts(const QString &menuFamily) {
+    return systemFonts(QFontDatabase().families(), menuFamily);
 }
 
 SystemFonts systemFonts() {

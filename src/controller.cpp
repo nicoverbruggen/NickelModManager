@@ -61,7 +61,8 @@ class Controller final : public QObject {
         density_ = screen && qMin(screen->size().width(), screen->size().height()) == 1404
                        ? 227
                        : 300;
-        attachNickel(this, [this] { openManager(); }, [this](QWidget *main) { reachedHome(main); });
+        attachNickel(this, [this](const QFont &menuFont) { openManager(menuFont); },
+                     [this](QWidget *main) { reachedHome(main); });
     }
 
   private:
@@ -118,7 +119,8 @@ class Controller final : public QObject {
     }
     // Closed dialogs can report visible without repainting on 6.0.276679.
     // Create a new dialog for each opening, then rescan before showing it.
-    void openManager() {
+    void openManager(const QFont &menuFont) {
+        font_.setFamily(NickelModManager::ui::systemFonts(menuFont.family()).sans);
         if (manager_ && !manager_->isVisible()) {
             manager_->deleteLater();
         }

@@ -4,6 +4,7 @@
 
 - Added firmware 6.0 support. Install `Kobo.tgz` on firmware 6.0; use `KoboRoot.tgz` on firmware 4.x.
 - Added automatic restoration of enabled mods after supported full firmware updates.
+- Use Tolino's Bariol font for manager pages. Kobo keeps its Rakuten or legacy fonts.
 
 ## v0.2
 

@@ -169,9 +169,9 @@ Manager::Manager(int density, const QFont &uiFont, QWidget *parent)
     rebuild();
 }
 
-// Like Nickel's settings pages, titles and rows use its serif alias and small
-// uppercase section labels use its sans alias. Black lines separate rows and
-// sit below section labels. Text sizes and weights, not grey, set secondary text
+// Like Nickel's settings pages, titles and rows use the selected main font.
+// Small uppercase section labels use the secondary font. Black lines separate
+// rows and sit below section labels. Text sizes and weights, not grey, set secondary text
 // apart. Nickel's dark palette is kept when the window is already dark.
 void Manager::applyAppearance(const QFont &uiFont) {
     auto colors = QApplication::palette();

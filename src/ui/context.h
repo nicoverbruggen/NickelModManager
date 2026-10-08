@@ -12,7 +12,7 @@ struct Context {
     QPalette palette;
     Context(int density, const QFont &font, const QPalette &palette)
         : density(density > 0 ? density : 300), font(font),
-          serifFamily(systemFonts().serif), palette(palette) {}
+          serifFamily(systemFonts(font.family()).serif), palette(palette) {}
     int px(int designPixels) const;
     void apply(QWidget *widget, int fontPixels = 36) const;
 };

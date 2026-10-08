@@ -4,6 +4,8 @@
 #include <QApplication>
 #include <QBoxLayout>
 #include <QEvent>
+#include <QLabel>
+#include <QPointer>
 #include <QPushButton>
 #include <utility>
 
@@ -12,7 +14,7 @@ namespace {
 // Nickel builds More on demand. Observe widget events and inspect after layout.
 class Integration final : public QObject {
   public:
-    Integration(QObject *owner, std::function<void()> openManager,
+    Integration(QObject *owner, std::function<void(const QFont &)> openManager,
                 std::function<void(QWidget *)> reachedHome)
         : QObject(owner), openManager_(std::move(openManager)),
           reachedHome_(std::move(reachedHome)) {
@@ -21,7 +23,7 @@ class Integration final : public QObject {
     }
 
   private:
-    std::function<void()> openManager_;
+    std::function<void(const QFont &)> openManager_;
     std::function<void(QWidget *)> reachedHome_;
     bool routeQueued_ = false;
     bool home_ = false;
@@ -64,7 +66,13 @@ class Integration final : public QObject {
         // A layout shows a new child of a visible parent only in a later event.
         // Show it now so it is part of the next paint.
         button->show();
-        connect(button, &QPushButton::clicked, this, [this] { openManager_(); });
+        const QPointer<QWidget> reference(widget);
+        connect(button, &QPushButton::clicked, this, [this, reference, button] {
+            // The stock label distinguishes Tolino's Bariol UI from Kobo's
+            // fonts without a brand flag or a private Nickel symbol.
+            auto *label = reference ? reference->findChild<QLabel *>("label") : nullptr;
+            openManager_(label ? label->font() : button->font());
+        });
     }
 
     void queueRoute() {
@@ -97,7 +105,7 @@ class Integration final : public QObject {
 
 } // namespace
 
-void attachNickel(QObject *owner, std::function<void()> openManager,
+void attachNickel(QObject *owner, std::function<void(const QFont &)> openManager,
                   std::function<void(QWidget *)> reachedHome) {
     new Integration(owner, std::move(openManager), std::move(reachedHome));
 }

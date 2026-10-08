@@ -32,7 +32,7 @@ Use Libra Colour 4.42.23033 and Libra 2 4.38.23697 as the Qt5 compatibility base
 
 Release `KoboRoot.tgz` for firmware 4.x from 4.23 and `Kobo.tgz` for firmware 6.0. Build and test both before publishing either package. Use Clara Colour 6.0.276679 as the Qt6 hardware baseline. Firmware 5.x remains experimental; do not expand support claims from shared Qt6 builds alone. Keep physical test results and remaining coverage in `DEVELOPER.md`.
 
-Select UI fonts from the installed families. Support Georgia and Avenir Next on older firmware, and Rakuten Serif and Rakuten Sans on newer firmware. Keep font selection shared across styled labels, headers and painted controls in `src/ui/fonts.*`; Nickel's font aliases are not available on every firmware.
+Select UI fonts from the installed families and the native menu font. Support Georgia and Avenir Next on older Kobo firmware, Rakuten Serif and Rakuten Sans on newer Kobo firmware, and Bariol on Tolino. Tolino also ships Rakuten fonts, so their presence does not identify the active UI. Pass the stock Help label's font through the Nickel integration when opening the manager. Keep font selection shared across styled labels, headers and painted controls in `src/ui/fonts.*`; Nickel's font aliases are not available on every firmware.
 
 For comment-only changes, check that executable tokens are unchanged and run `git diff --check`. Run `sh -n src/updates/restore-hook.sh` when editing that script's comments. A runtime test rerun is not needed when executable content is unchanged.
 
