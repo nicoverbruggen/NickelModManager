@@ -47,7 +47,7 @@ struct Fixture {
         return directory.path() + relative;
     }
     QString state() const {
-        return path("/mnt/onboard/.adds/nickelmodmanager");
+        return path("/mnt/onboard/.adds/nickel-mod-manager");
     }
     QString restore() const {
         return state() + "/restore";

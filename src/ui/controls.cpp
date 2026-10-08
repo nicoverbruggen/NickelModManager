@@ -13,7 +13,8 @@
 namespace NickelModManager {
 namespace ui {
 namespace {
-const QColor mid("#b7b7b7"), pressedFill("#555555"), disabledFill("#eeeeee"),
+// Lines are black like Nickel's own; grey only marks pressed and disabled states.
+const QColor line("#000000"), pressedFill("#555555"), disabledFill("#eeeeee"),
     disabledText("#666666");
 #if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
 // Nickel on firmware 4.x delivers taps as touch events. Its own buttons take
@@ -240,11 +241,11 @@ void ActionButton::paintEvent(QPaintEvent *) {
     }
     painter.fillRect(rect(), fill);
     if (kind_ == ButtonKind::Outlined) {
-        painter.setPen(down ? ink : mid);
+        painter.setPen(line);
         painter.setBrush(Qt::NoBrush);
         painter.drawRect(QRectF(rect()).adjusted(.5, .5, -.5, -.5));
     }
-    painter.setPen(mid);
+    painter.setPen(line);
     if (rules_ & Qt::LeftEdge) {
         painter.drawLine(QPointF(.5, 0), QPointF(.5, height()));
     }
@@ -315,7 +316,7 @@ Divider::Divider(const Context &context, QWidget *parent) : QWidget(parent) {
 }
 void Divider::paintEvent(QPaintEvent *) {
     QPainter painter(this);
-    painter.fillRect(rect(), mid);
+    painter.fillRect(rect(), line);
 }
 
 Header::Header(const Context &context, QWidget *parent) : QWidget(parent), context_(context) {
@@ -363,7 +364,7 @@ void Header::arrange() {
 void Header::paintEvent(QPaintEvent *) {
     QPainter painter(this);
     painter.fillRect(rect(), palette().color(QPalette::Window));
-    painter.fillRect(0, height() - qMax(1, context_.px(1)), width(), qMax(1, context_.px(1)), mid);
+    painter.fillRect(0, height() - qMax(1, context_.px(1)), width(), qMax(1, context_.px(1)), line);
 }
 
 } // namespace ui

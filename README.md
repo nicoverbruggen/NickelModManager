@@ -19,7 +19,7 @@ Ordinary Nickel plugin mods need no changes to work with the manager. Each mod r
 
 ## Remove
 
-Turn on any mods you want to keep using first. Connect by USB, delete `.adds/nickelmodmanager/uninstall`, eject and restart. You can instead create an empty `.adds/nickelmodmanager/uninstall-now` file and restart. NickelModManager removes its library and update-restoration hook. Other installed mods stay installed. Saved settings and mod copies stay on user storage; mods you turned off stay off.
+Turn on any mods you want to keep using first. Connect by USB, delete `.adds/nickel-mod-manager/uninstall`, eject and restart. You can instead create an empty `.adds/nickel-mod-manager/uninstall-now` file and restart. NickelModManager removes its library and update-restoration hook. Other installed mods stay installed. Saved settings and mod copies stay on user storage; mods you turned off stay off.
 
 To reinstall, copy the package again. The uninstall marker is created again on the first start. If the first start after installing, updating or a firmware update fails before Home has been up for three seconds, the manager stays disabled by its failsafe. Reinstalling retries startup.
 

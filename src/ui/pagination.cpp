@@ -8,7 +8,7 @@
 namespace NickelModManager {
 namespace ui {
 namespace {
-const QColor mid("#b7b7b7");
+const QColor line("#000000"); // Black like Nickel's own lines.
 void polishTree(QWidget *widget) {
     widget->ensurePolished();
     for (auto *child : widget->findChildren<QWidget *>()) {
@@ -48,7 +48,7 @@ void PagerBar::resizeEvent(QResizeEvent *) {
 void PagerBar::paintEvent(QPaintEvent *) {
     QPainter painter(this);
     painter.fillRect(rect(), palette().color(QPalette::Window));
-    painter.fillRect(0, 0, width(), qMax(1, context_.px(1)), mid);
+    painter.fillRect(0, 0, width(), qMax(1, context_.px(1)), line);
 }
 void PagerBar::setPage(int page, int count) {
     count = qMax(1, count);

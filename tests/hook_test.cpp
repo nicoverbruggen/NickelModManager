@@ -51,7 +51,7 @@ QString run(const QString &program, const QStringList &arguments, int timeout = 
 struct System {
     QTemporaryDir dir;
     QString root() const { return dir.path() + "/root"; }
-    QString storage() const { return dir.path() + "/onboard/.adds/nickelmodmanager"; }
+    QString storage() const { return dir.path() + "/onboard/.adds/nickel-mod-manager"; }
     QString self() const { return root() + "/usr/local/Kobo/imageformats/libnickelmm.so"; }
     QVector<QPair<QString, QStringList>> contract;
     System() {

@@ -16,7 +16,7 @@ int failures = 0;
 struct Device {
     QTemporaryDir root;
     QString plugins() const { return root.path() + "/imageformats"; }
-    QString storage() const { return root.path() + "/onboard/.adds/nickelmodmanager"; }
+    QString storage() const { return root.path() + "/onboard/.adds/nickel-mod-manager"; }
     Device() { QDir().mkpath(plugins()); write(plugins() + "/libnickelmm.so", "loader"); }
     static void write(const QString &path, const QByteArray &bytes) {
         QFile file(path);
@@ -56,6 +56,9 @@ void firstStartAndToggles() {
     QString error;
     CHECK(first.setEnabled("libprobe.so", false, error));
     CHECK(!device.live("libprobe.so") && device.kept("libprobe.so"));
+    // The size comes from the installed library, or from the saved copy when off.
+    CHECK(first.librarySize("libnm.so") == 4 && first.librarySize("libprobe.so") == 5);
+    CHECK(first.librarySize("libmissing.so") == -1);
     CHECK(first.pendingChanges() == 1);
     // Undoing the change in the same session leaves nothing waiting.
     CHECK(first.setEnabled("libprobe.so", true, error));

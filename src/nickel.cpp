@@ -45,11 +45,10 @@ class Integration final : public QObject {
             }
         }
     }
-    // More is built on demand. Match widget names and layout shape, rather
-    // than translated labels, and use the Help row as the insertion anchor.
+    // Nickel builds More when it first opens. Help is the anchor, matched by
+    // widget name and layout rather than translated labels: Manage Mods goes
+    // directly above it, which is below Settings.
     void insertMenuEntry(QWidget *widget) {
-        // More is built when it first opens. Its Help row is the anchor:
-        // Manage Mods goes directly above it, which is below Settings.
         if (widget->objectName() != "helpButton") {
             return;
         }
@@ -62,6 +61,9 @@ class Integration final : public QObject {
         auto *button = new NickelModManager::ui::MenuEntry("Manage Mods", widget, parent);
         button->setObjectName("nickelModManagerButton");
         layout->insertWidget(layout->indexOf(widget), button);
+        // A layout shows a new child of a visible parent only in a later event.
+        // Show it now so it is part of the next paint.
+        button->show();
         connect(button, &QPushButton::clicked, this, [this] { openManager_(); });
     }
 
@@ -78,8 +80,15 @@ class Integration final : public QObject {
         });
     }
     bool eventFilter(QObject *watched, QEvent *event) override {
-        if (event->type() == QEvent::Show || event->type() == QEvent::ChildAdded ||
-            event->type() == QEvent::Polish) {
+        const auto type = event->type();
+        // Insert Manage Mods while Help is polished or shown, before More is
+        // first drawn. The queued pass below runs after that paint, and on
+        // e-ink the row would then appear in a second redraw.
+        if ((type == QEvent::Polish || type == QEvent::Show) && watched->isWidgetType() &&
+            watched->objectName() == "helpButton") {
+            insertMenuEntry(static_cast<QWidget *>(watched));
+        }
+        if (type == QEvent::Show || type == QEvent::ChildAdded || type == QEvent::Polish) {
             queueRoute();
         }
         return QObject::eventFilter(watched, event);

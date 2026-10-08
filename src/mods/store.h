@@ -46,6 +46,10 @@ class ModStore {
     // pendingChanges counts differences between enabled and the loaded baseline.
     int pendingChanges() const;
 
+    // librarySize returns the size in bytes of the installed library, the held
+    // failsafe copy or the saved copy, in that order, or -1 when none exists.
+    qint64 librarySize(const QString &file) const;
+
     // failsafe returns the held library's path, or an empty string if absent.
     QString failsafe(const QString &file) const;
 

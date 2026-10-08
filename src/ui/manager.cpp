@@ -22,8 +22,9 @@ namespace ui {
 // --- row controls
 namespace {
 // The tint that sets NickelModManager's own card apart from the mods. A light
-// grey keeps black text at full contrast on e-ink.
-const QColor tint("#ededed"), rule("#b7b7b7"), secondaryInk("#555555");
+// grey keeps black text at full contrast on e-ink. Text and lines stay black:
+// grey text and lines look lighter than Nickel's own.
+const QColor tint("#ededed"), line("#000000");
 const char serifFamily[] = "DefaultSerif"; // Nickel's alias, next to DefaultSansSerif.
 
 QLabel *text(const QString &value, QWidget *parent, const QString &name, const char *role) {
@@ -93,8 +94,8 @@ class ManagerCard final : public QPushButton {
                      paper = palette().color(QPalette::Window);
         const bool down = isDown();
         painter.fillRect(rect(), down ? ink : tint);
-        painter.fillRect(QRect(0, height() - 1, width(), 1), rule);
-        const QColor fore = down ? paper : ink, back = down ? paper : secondaryInk;
+        painter.fillRect(QRect(0, height() - 1, width(), 1), line);
+        const QColor fore = down ? paper : ink;
         const int inset = context_.px(36), glyph = context_.px(40);
         NickelModManager::ui::icon(warning_ ? Icon::Alert : Icon::Info, fore)
             .paint(&painter, QRect(inset, (height() - glyph) / 2, glyph, glyph));
@@ -109,7 +110,7 @@ class ManagerCard final : public QPushButton {
         painter.setFont(heading);
         const QString name = "NickelModManager";
         painter.drawText(QPoint(left, top + headingMetrics.ascent()), name);
-        painter.setPen(back);
+        painter.setPen(fore);
         painter.setFont(small);
         painter.drawText(
             QPoint(left, top + headingMetrics.height() + context_.px(6) + smallMetrics.ascent()),
@@ -170,17 +171,15 @@ Manager::Manager(int density, const QFont &uiFont, QWidget *parent)
 }
 
 // Like Nickel's settings pages, titles and rows use its serif alias and small
-// uppercase section labels use its sans alias. Grey lines separate rows and
-// sit below section labels. Qt5 lacks PlaceholderText, so secondary text comes from role
-// styles. Nickel's dark palette is kept when the window is already dark.
+// uppercase section labels use its sans alias. Black lines separate rows and
+// sit below section labels. Text sizes and weights, not grey, set secondary text
+// apart. Nickel's dark palette is kept when the window is already dark.
 void Manager::applyAppearance(const QFont &uiFont) {
     auto colors = QApplication::palette();
-    QColor secondary = colors.color(QPalette::WindowText);
     if (colors.color(QPalette::Window).lightness() > 128) {
         colors.setColor(QPalette::Window, Qt::white);
-        colors.setColor(QPalette::WindowText, QColor("#191919"));
-        colors.setColor(QPalette::Mid, rule);
-        secondary = secondaryInk;
+        colors.setColor(QPalette::WindowText, Qt::black);
+        colors.setColor(QPalette::Mid, line);
     }
     setPalette(colors);
     QFont font = uiFont;
@@ -197,18 +196,18 @@ void Manager::applyAppearance(const QFont &uiFont) {
     };
     const QString sans = quoted(font.family()), serif = quoted(QString::fromLatin1(serifFamily)),
                   window = colors.color(QPalette::Window).name(),
-                  ink = colors.color(QPalette::WindowText).name(), grey = secondary.name();
+                  ink = colors.color(QPalette::WindowText).name();
     setStyleSheet(
         "QWidget{font-family:" + sans + ";font-size:" + size(36) +
         ";font-style:normal;font-weight:400;background:" + window + ";color:" + ink + ";}" +
         "QLabel[nmmRole=title]{font-family:" + serif + ";font-size:" + size(52) + ";}" +
         "QLabel[nmmRole=row]{font-family:" + serif + ";font-size:" + size(32) + ";}" +
-        "QLabel[nmmRole=strong]{font-size:" + size(28) + ";font-weight:600;}" +
-        "QLabel[nmmRole=secondary]{font-size:" + size(28) + ";color:" + grey + ";}" +
-        "QLabel[nmmRole=caption]{font-size:" + size(26) + ";color:" + grey + ";}" +
-        "QLabel[nmmRole=section]{font-size:" + size(24) + ";color:" + grey + ";}" +
+        "QLabel[nmmRole=status]{font-size:" + size(26) + ";font-weight:600;}" +
+        "QLabel[nmmRole=secondary]{font-size:" + size(28) + ";}" +
+        "QLabel[nmmRole=caption]{font-size:" + size(26) + ";}" +
+        "QLabel[nmmRole=section]{font-size:" + size(24) + ";}" +
         "QFrame[nmmRow=true],QFrame[nmmSection=true]{border:none;border-bottom:1px solid " +
-        rule.name() + ";}");
+        line.name() + ";}");
 }
 
 // Keep navigation outside the page bodies. Back leaves the details page for
@@ -230,7 +229,7 @@ void Manager::buildPageFrame(QVBoxLayout *layout) {
     layout->addWidget(pages_, 1);
 }
 
-// A small uppercase section label with a grey line below it. Labels and rows
+// A small uppercase section label with a line below it. Labels and rows
 // run from edge to edge; their text keeps the page inset. top is the space
 // above the label.
 QWidget *Manager::buildSectionLabel(const QString &title, QWidget *parent, const QString &name,
@@ -425,7 +424,16 @@ void Manager::setRestore(Restore mode, bool on) {
     restoreToggle_->setChecked(mode == Restore::Available && on);
 }
 
+// The store clears a note when the user turns its mod on or off. Keep showing
+// it until the window closes: removing the line would move the rows below.
 void Manager::setRows(QVector<Row> rows, int pending) {
+    for (auto &row : rows) {
+        if (!row.note.isEmpty()) {
+            notes_[row.file] = row.note;
+        } else {
+            row.note = notes_.value(row.file);
+        }
+    }
     rows_ = std::move(rows);
     pending_ = pending;
     scheduleRebuild();
@@ -551,24 +559,31 @@ bool Manager::confirmRetry(const Row &row) {
     return choice == 0;
 }
 
-// The name, a status while a change waits, the note, then the file and build
-// date. Names and notes come from files, so every label stays plain text.
+// The name, the note when there is one, then one line with the build date, the
+// size and the file. While a change waits, a status at the same text size
+// takes that last line's place, so toggling never changes a row's height and
+// the rows below stay where they are. Names and notes come from files, so every
+// label stays plain text.
 QVBoxLayout *Manager::buildRowDetails(const Row &row, QWidget *frame) {
     auto *info = new QVBoxLayout;
     info->setContentsMargins(0, 0, 0, 0);
     info->setSpacing(px(6));
     info->addWidget(text(row.name, frame, "name:" + row.file, "row"));
-    const QString waiting = pending(row);
-    if (!waiting.isEmpty()) {
-        info->addWidget(text(waiting, frame, "status:" + row.file, "strong"));
-    } else if (!row.note.isEmpty()) {
+    if (!row.note.isEmpty()) {
         info->addWidget(text(row.note, frame, "note:" + row.file, "caption"));
     }
-    QStringList file{row.file};
-    if (!row.built.isEmpty()) {
-        file << row.built;
+    const QString waiting = pending(row);
+    if (!waiting.isEmpty()) {
+        info->addWidget(text(waiting, frame, "status:" + row.file, "status"));
+        return info;
     }
-    info->addWidget(text(file.join(QString::fromUtf8("  \xc2\xb7  ")), frame, "file:" + row.file,
+    QStringList facts;
+    for (const QString &fact : {row.built, row.size, row.file}) {
+        if (!fact.isEmpty()) {
+            facts << fact;
+        }
+    }
+    info->addWidget(text(facts.join(QString::fromUtf8("  \xc2\xb7  ")), frame, "file:" + row.file,
                          "caption"));
     return info;
 }

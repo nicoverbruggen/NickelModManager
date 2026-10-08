@@ -53,7 +53,7 @@ Lifecycle::Lifecycle(QString self, QString storage, QString firmware, QString ro
     const QFileInfo library(self_);
     parked_ = QFileInfo(library.absolutePath()).absolutePath() + "/" + library.fileName() +
               ".failsafe";
-    receipt_ = QFileInfo(storage_).absolutePath() + "/.nickelmodmanager.initialized";
+    receipt_ = QFileInfo(storage_).absolutePath() + "/.nickel-mod-manager.initialized";
     confirmed_ = storage_ + "/confirmed";
 }
 

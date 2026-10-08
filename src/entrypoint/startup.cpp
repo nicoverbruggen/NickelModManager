@@ -49,7 +49,7 @@ void startModManager() {
     }
     // The plugin can load after QApplication exists. Use a local value so
     // registration in another translation unit cannot precede its initialization.
-    const QString storage = "/mnt/onboard/.adds/nickelmodmanager";
+    const QString storage = "/mnt/onboard/.adds/nickel-mod-manager";
     const QString self = selfPath();
     if (self.isEmpty()) {
         syslog(LOG_ERR, "NickelModManager: cannot find its own library");

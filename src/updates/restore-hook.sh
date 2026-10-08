@@ -21,7 +21,7 @@ root=
 # Fixture paths affect tests only; device runs use the real absolute paths.
 case "$2" in --fixture=/*) root=${2#--fixture=} ;; esac
 kobo=$root/mnt/onboard/.kobo
-state=$root/mnt/onboard/.adds/nickelmodmanager
+state=$root/mnt/onboard/.adds/nickel-mod-manager
 restore=$state/restore
 
 # A normal reboot has no staged update. Say nothing then.

@@ -6,6 +6,7 @@
 #include <QPainter>
 #include <QScreen>
 #include <QVBoxLayout>
+#include <memory>
 #include <utility>
 
 namespace NickelModManager {
@@ -47,24 +48,32 @@ class Card final : public QWidget {
   private:
     int edge_;
 };
-} // namespace
+// The parts of a dialog that callers fill in.
+struct Sheet {
+    Modal *dialog;
+    QWidget *card;
+    QVBoxLayout *rows;
+};
 
-int choose(QWidget *parent, const Context &context, const QString &title, const QString &message,
-           const QString &detail, const QVector<DialogAction> &actions) {
+// buildSheet makes a full-window dialog over a capture of the window below,
+// with a bordered card holding the title, message and detail. The caller owns
+// the dialog, adds any buttons to rows, and shows it.
+Sheet buildSheet(QWidget *parent, const Context &context, const QString &title,
+                 const QString &message, const QString &detail) {
     QWidget *below =
         parent && parent->isVisible() ? parent->window() : QApplication::activeWindow();
     QRect area = below ? below->geometry() : QRect();
     if (area.isEmpty() && QApplication::primaryScreen()) {
         area = QApplication::primaryScreen()->geometry();
     }
-    Modal dialog(parent, below && below->isVisible() ? below->grab() : QPixmap());
-    dialog.setObjectName("nmmDialog");
-    dialog.setModal(true);
-    dialog.setPalette(context.palette);
-    dialog.setGeometry(area);
-    auto *outer = new QVBoxLayout(&dialog);
+    auto *dialog = new Modal(parent, below && below->isVisible() ? below->grab() : QPixmap());
+    dialog->setObjectName("nmmDialog");
+    dialog->setModal(true);
+    dialog->setPalette(context.palette);
+    dialog->setGeometry(area);
+    auto *outer = new QVBoxLayout(dialog);
     outer->setContentsMargins(context.px(48), context.px(48), context.px(48), context.px(48));
-    auto *card = new Card(context, &dialog);
+    auto *card = new Card(context, dialog);
     card->setPalette(context.palette);
     card->setFixedWidth(qMin(context.px(880), qMax(1, area.width() - 2 * context.px(48))));
     outer->addStretch();
@@ -94,23 +103,42 @@ int choose(QWidget *parent, const Context &context, const QString &title, const 
         label(message, "nmmDialogMessage", 32, "background:transparent;");
     }
     if (!detail.isEmpty()) {
-        label(detail, "nmmDialogDetail", 28, "color:#555555;background:transparent;");
+        label(detail, "nmmDialogDetail", 28, "background:transparent;");
     }
-    rows->addSpacing(context.px(8));
+    return {dialog, card, rows};
+}
+} // namespace
+
+int choose(QWidget *parent, const Context &context, const QString &title, const QString &message,
+           const QString &detail, const QVector<DialogAction> &actions) {
+    const Sheet sheet = buildSheet(parent, context, title, message, detail);
+    std::unique_ptr<Modal> dialog(sheet.dialog);
+    sheet.rows->addSpacing(context.px(8));
     int chosen = -1;
     for (int index = 0; index < actions.size(); ++index) {
-        auto *button = new ActionButton(actions[index].text, context, card);
+        auto *button = new ActionButton(actions[index].text, context, sheet.card);
         button->setObjectName(actions[index].name);
         button->setKind(index == 0 ? ButtonKind::Primary : ButtonKind::Outlined);
         button->setMinimumHeight(context.px(88));
-        QObject::connect(button, &QPushButton::clicked, &dialog, [&dialog, &chosen, index] {
+        Modal *shown = dialog.get();
+        QObject::connect(button, &QPushButton::clicked, shown, [shown, &chosen, index] {
             chosen = index;
-            dialog.accept();
+            shown->accept();
         });
-        rows->addWidget(button);
+        sheet.rows->addWidget(button);
     }
-    dialog.exec();
+    dialog->exec();
     return chosen;
+}
+
+QWidget *showStatus(QWidget *parent, const Context &context, const QString &title) {
+    const Sheet sheet = buildSheet(parent, context, title, QString(), QString());
+    sheet.dialog->setAttribute(Qt::WA_DeleteOnClose);
+    sheet.dialog->show();
+    // Paint now rather than in a later event, so the card reaches the screen
+    // before the caller starts work that may end the process.
+    sheet.dialog->repaint();
+    return sheet.dialog;
 }
 
 } // namespace ui

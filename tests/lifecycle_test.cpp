@@ -37,10 +37,10 @@ QByteArray read(const QString &path) {
 struct System {
     QTemporaryDir directory;
     QString root() const { return directory.path() + "/root"; }
-    QString storage() const { return directory.path() + "/onboard/.adds/nickelmodmanager"; }
+    QString storage() const { return directory.path() + "/onboard/.adds/nickel-mod-manager"; }
     QString self() const { return root() + "/usr/local/Kobo/imageformats/libnickelmm.so"; }
     QString parked() const { return root() + "/usr/local/Kobo/libnickelmm.so.failsafe"; }
-    QString receipt() const { return directory.path() + "/onboard/.adds/.nickelmodmanager.initialized"; }
+    QString receipt() const { return directory.path() + "/onboard/.adds/.nickel-mod-manager.initialized"; }
     QString confirmed() const { return storage() + "/confirmed"; }
     Lifecycle lifecycle(const QString &firmware = "rev-1") const {
         return Lifecycle(self(), storage(), firmware, root());

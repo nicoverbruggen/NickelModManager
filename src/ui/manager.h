@@ -1,6 +1,7 @@
 #pragma once
 #include <QDialog>
 #include <QFont>
+#include <QHash>
 #include <QString>
 #include <QVector>
 #include <functional>
@@ -19,7 +20,8 @@ class ManagerCard;
 struct Context;
 // Row is a display snapshot. It owns its values and holds no ModStore pointers.
 struct Row {
-    QString file, name, note, built; // built is "Built 12 Jun 2026", or empty when unknown.
+    QString file, name, note;
+    QString size, built; // "412 KB" and the build date "12 Jun 2026"; each empty when unknown.
     bool enabled, loaded;
     // Failed to load: its NickelHook failsafe holds the library. It stays set
     // when the user turns the mod on again, so the row stays in the Failed to
@@ -82,6 +84,7 @@ class Manager final : public QDialog {
     // Keep the last toggled row visible when its note changes its height.
     QString changed_;
     QVector<Row> rows_;
+    QHash<QString, QString> notes_; // Notes shown in this window, by library file.
     int pending_ = 0;
     Header *header_;
     QStackedWidget *pages_;

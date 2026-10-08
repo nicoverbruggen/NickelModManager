@@ -448,6 +448,15 @@ QStringList ModStore::keptOn() const {
     return result;
 }
 
+qint64 ModStore::librarySize(const QString &file) const {
+    for (const QString &path : {plugins_ + "/" + file, failsafe(file), savedLibraryPath(file)}) {
+        if (!path.isEmpty() && isRegularFile(path)) {
+            return QFileInfo(path).size();
+        }
+    }
+    return -1;
+}
+
 int ModStore::pendingChanges() const {
     return int(std::count_if(mods_.begin(), mods_.end(), [](const Mod &mod) {
         return mod.enabled != mod.loaded;

@@ -17,13 +17,24 @@
 
 namespace NickelModManager {
 namespace {
-// "Built 12 Jun 2026", or empty when the library has no modification time.
+// "12 Jun 2026", or empty when the library has no modification time.
 QString builtDate(const NickelModManager::Mod &mod) {
     if (mod.built <= 0) {
         return QString();
     }
     const QDate day = QDateTime::fromMSecsSinceEpoch(mod.built * 1000).date();
-    return "Built " + QLocale::c().toString(day, "d MMM yyyy");
+    return QLocale::c().toString(day, "d MMM yyyy");
+}
+
+// "412 KB" or "1.2 MB" in binary units, or empty when the size is unknown.
+QString fileSize(qint64 bytes) {
+    if (bytes < 0) {
+        return QString();
+    }
+    if (bytes < 1024 * 1024) {
+        return QString::number(qMax<qint64>(1, (bytes + 512) / 1024)) + " KB";
+    }
+    return QString::number(bytes / (1024.0 * 1024.0), 'f', 1) + " MB";
 }
 
 // Controller connects the store and update hook to Nickel's widgets on the
@@ -70,8 +81,8 @@ class Controller final : public QObject {
         // reorder its mod list during a rescan or a state change.
         QVector<NickelModManager::ui::Row> result;
         for (const auto &mod : store_->mods()) {
-            result.append({mod.file, mod.name, mod.note, builtDate(mod), mod.enabled, mod.loaded,
-                           failedToLoad(mod)});
+            result.append({mod.file, mod.name, mod.note, fileSize(store_->librarySize(mod.file)),
+                           builtDate(mod), mod.enabled, mod.loaded, failedToLoad(mod)});
         }
         return result;
     }
@@ -190,15 +201,29 @@ class Controller final : public QObject {
             syslog(LOG_ERR, "NickelModManager: restore after updates: %s", qPrintable(error));
         }
     }
+    // Show a notice first, so the screen does not simply freeze while the device
+    // shuts down. E-ink needs a moment to draw it before the reboot begins.
     void requestRestart() {
-        if (QProcess::startDetached("/sbin/reboot", {})) {
-            return;
-        }
-        syslog(LOG_ERR, "NickelModManager: restart request failed");
-        if (manager_) {
-            manager_->showNotice("Restart failed",
-                                 "Turn the eReader off and on again to apply the changes.");
-        }
+        const bool inManager = manager_ && manager_->isVisible();
+        QWidget *over = inManager ? manager_.data() : QApplication::activeWindow();
+        const auto context = inManager ? manager_->context()
+                                       : NickelModManager::ui::Context(density_, font_,
+                                                                       QApplication::palette());
+        const QString text = QString::fromUtf8("Restarting now\xe2\x80\xa6");
+        QPointer<QWidget> notice(NickelModManager::ui::showStatus(over, context, text));
+        NickelModManager::later(this, 500, [this, notice] {
+            if (QProcess::startDetached("/sbin/reboot", {})) {
+                return;
+            }
+            syslog(LOG_ERR, "NickelModManager: restart request failed");
+            if (notice) {
+                notice->close();
+            }
+            if (manager_) {
+                manager_->showNotice("Restart failed",
+                                     "Turn the eReader off and on again to apply the changes.");
+            }
+        });
     }
     void reachedHome(QWidget *main) {
         // Nickel integration reports Home once per process, after More is visible.
