@@ -41,8 +41,6 @@ C++ code uses the `NickelModManager` namespace.
 
 ## Startup and removal
 
-Earlier development builds used `libnickelmodmanager.so`. Remove that build with its uninstall marker before installing the renamed library, so both files cannot load together. Saved settings and copies remain available after removal.
-
 The entry point uses Qt's image-plugin discovery and startup callback. It does not link NickelHook, resolve private Nickel symbols or patch Nickel functions. `src/nickel.cpp` observes Qt widget events and checks widget names and layout shape. Firmware compatibility still needs runtime checks because those names and layouts can change.
 
 The Qt5 compatibility baselines are Libra Colour 4.42.23033 and Libra 2 4.38.23697. Clara BW 4.45 is an additional target for the first hardware check. These baselines do not establish support for every firmware 4 release or physical-device behavior.

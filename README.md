@@ -1,6 +1,6 @@
 # NickelModManager
 
-NickelModManager adds Manage Mods to Nickel's More menu. It lists installed mods and lets you turn them off and on. Changes apply after a restart. It keeps copies of your mods on user storage and can restore enabled mods after supported firmware updates.
+NickelModManager adds Manage Mods to Nickel's More menu. It lists installed mods and lets you turn them off and on. Changes apply after a restart. It keeps a copy of each mod on user storage, so a mod you turn off can be turned on again later.
 
 It supports firmware 4.x. Support for firmware 5.x and 6.x is under development and is not part of the releases yet.
 
@@ -8,13 +8,13 @@ It supports firmware 4.x. Support for firmware 5.x and 6.x is under development 
 
 Download `KoboRoot.tgz` from the [latest release](https://github.com/nicoverbruggen/NickelModManager/releases/latest). Copy it to `.kobo/` on the eReader, eject it and restart.
 
-Open More, Manage Mods to change which mods load at the next start. NickelModManager itself cannot be turned off from this screen. Its card opens the Restore after firmware updates setting.
+Open More, Manage Mods to change which mods load at the next start. Mods are listed as enabled or disabled. A mod that failed to load has its own section, and turning it on again asks for confirmation first. NickelModManager itself cannot be turned off from this screen; its card at the top shows its version and details.
 
 Ordinary Nickel plugin mods need no changes to work with the manager. Each mod remains responsible for its own compatibility checks and hooks.
 
 ## Remove
 
-Turn on any mods you want to keep using first. Connect by USB, delete `.adds/nickel-mod-manager/uninstall`, eject and restart. You can instead create an empty `.adds/nickel-mod-manager/uninstall-now` file and restart. NickelModManager removes its library and update-restoration hook. Other installed mods stay installed. Saved settings and mod copies stay on user storage; mods you turned off stay off.
+Turn on any mods you want to keep using first. Connect by USB, then delete `.adds/nickel-mod-manager/uninstall` or the whole `.adds/nickel-mod-manager` folder, eject and restart. NickelModManager removes its library at that start. Other installed mods stay installed, and mods you turned off stay off. Deleting only the `uninstall` file keeps the saved copies of your mods; deleting the folder removes them too.
 
 To reinstall, copy the package again. The uninstall marker is created again on the first start. If the first start after installing, updating or a firmware update fails before Home has been up for three seconds, the manager stays disabled by its failsafe. Reinstalling retries startup.
 
