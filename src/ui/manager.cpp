@@ -25,7 +25,6 @@ namespace {
 // grey keeps black text at full contrast on e-ink. Text and lines stay black:
 // grey text and lines look lighter than Nickel's own.
 const QColor tint("#ededed"), line("#000000");
-const char serifFamily[] = "DefaultSerif"; // Nickel's alias, next to DefaultSansSerif.
 
 QLabel *text(const QString &value, QWidget *parent, const QString &name, const char *role) {
     // Plain text is the default because names and notes can come from files.
@@ -121,7 +120,7 @@ class ManagerCard final : public QPushButton {
     // The name uses Nickel's serif, like the rows on its settings pages.
     QFont title() const {
         QFont result = detail(QFont::Normal, 32);
-        result.setFamily(QString::fromLatin1(serifFamily));
+        result.setFamily(context_.serifFamily);
         return result;
     }
     QFont detail(QFont::Weight weight = QFont::Normal, int pixels = 28) const {
@@ -194,7 +193,7 @@ void Manager::applyAppearance(const QFont &uiFont) {
     const auto size = [this](int pixels) {
         return QString::number(px(pixels)) + "px";
     };
-    const QString sans = quoted(font.family()), serif = quoted(QString::fromLatin1(serifFamily)),
+    const QString sans = quoted(font.family()), serif = quoted(context().serifFamily),
                   window = colors.color(QPalette::Window).name(),
                   ink = colors.color(QPalette::WindowText).name();
     setStyleSheet(

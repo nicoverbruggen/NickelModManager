@@ -60,7 +60,7 @@ if(NICKELMODMANAGER_PLUGINS OR NICKELMODMANAGER_PROBES)
 endif()
 if(NICKELMODMANAGER_PLUGINS)
     embed_text(src/ui/icons/LICENSE icon_notice.h lucideNotice)
-    add_library(nmmui STATIC src/ui/icons.cpp src/ui/controls.cpp src/ui/pagination.cpp
+    add_library(nmmui STATIC src/ui/icons.cpp src/ui/fonts.cpp src/ui/controls.cpp src/ui/pagination.cpp
         src/ui/dialogs.cpp src/ui/menu.cpp src/ui/manager.cpp "${CMAKE_CURRENT_BINARY_DIR}/icon_notice.h")
     target_include_directories(nmmui PUBLIC src PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
     target_link_libraries(nmmui PUBLIC ${QT}::Widgets ${QT}::Gui)

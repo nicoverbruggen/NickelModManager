@@ -333,11 +333,11 @@ Header::Header(const Context &context, QWidget *parent) : QWidget(parent), conte
     title->setTextFormat(Qt::PlainText);
     context.apply(title, 40);
     QFont serif = title->font();
-    serif.setFamily("DefaultSerif");
+    serif.setFamily(context.serifFamily);
     title->setFont(serif);
-    title->setStyleSheet(QString("font-family:\"DefaultSerif\";font-size:%1px;font-style:normal;"
+    title->setStyleSheet(QString("font-family:\"%1\";font-size:%2px;font-style:normal;"
                                  "font-weight:400;background:transparent;")
-                             .arg(serif.pixelSize()));
+                             .arg(context.serifFamily).arg(serif.pixelSize()));
     setFixedHeight(context.px(112));
 }
 void Header::setTitle(const QString &value) {

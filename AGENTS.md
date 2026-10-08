@@ -30,6 +30,8 @@ Run checks appropriate to the change. `sh tools/build.sh --test` builds and runs
 
 Use Libra Colour 4.42.23033 and Libra 2 4.38.23697 as the Qt5 compatibility baselines. Keep entry-point, uninstall, startup failsafe and mod-management behavior working on both. Prefer Qt APIs over private Nickel symbols so new firmware checks do not require a symbol port first. Hardware checks remain necessary for touch, e-ink and interaction with installed mods.
 
+Select UI fonts from the installed families. Support Georgia and Avenir Next on older firmware, and Rakuten Serif and Rakuten Sans on newer firmware. Keep font selection shared across styled labels, headers and painted controls in `src/ui/fonts.*`; Nickel's font aliases are not available on every firmware.
+
 For comment-only changes, check that executable tokens are unchanged and run `git diff --check`. Run `sh -n src/updates/restore-hook.sh` when editing that script's comments. A runtime test rerun is not needed when executable content is unchanged.
 
 Keep `README.md` short and user-facing. Put build commands, source layout, tests and technical behavior in `DEVELOPER.md`, and update it when relevant code changes. Keep project tooling in CMake, shell or C++; do not add Python dependencies. Keep tests under `tests/` and register them with CTest. Group UI in `src/ui/`, firmware restoration in `src/updates/`, and plugin registration, startup, uninstall and failsafe behavior in `src/entrypoint/`. Keep controller behavior separate from Nickel widget integration. Prefer Qt APIs and widget inspection to private Nickel symbols. Keep deletion-based uninstall and the startup failsafe available independently of the manager UI.

@@ -2,6 +2,7 @@
 #include "compat.h"
 #include "nickel.h"
 #include "ui/dialogs.h"
+#include "ui/fonts.h"
 #include "ui/manager.h"
 #include "updates/hook.h"
 #include <QApplication>
@@ -53,7 +54,7 @@ class Controller final : public QObject {
         Q_UNUSED(storage);
 #endif
         font_ = QApplication::font();
-        font_.setFamily("DefaultSansSerif");
+        font_.setFamily(NickelModManager::ui::systemFonts().sans);
         // The Elipsa 2E has a 1404-pixel short edge. Nickel can start with the
         // screen in landscape before switching to portrait, so use both axes.
         const auto *screen = QApplication::primaryScreen();

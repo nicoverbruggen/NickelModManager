@@ -1,5 +1,5 @@
-// The former SVG converter is gone. Check the fixed glyphs without loading
-// a GUI platform plugin; Qt's path geometry needs no display server.
+// Check glyph geometry and firmware font selection without a GUI platform.
+#include "ui/fonts.h"
 #include "ui/icons.h"
 #include <QTransform>
 #include <cmath>
@@ -37,8 +37,22 @@ void checkBounds() {
     const QByteArray notice = iconNotice();
     CHECK(notice.contains("Lucide") && notice.contains("Cole Bemis"));
 }
+void checkSystemFonts() {
+    using NickelModManager::ui::systemFonts;
+    const auto old = systemFonts({"Georgia", "Avenir Next", "KBJ-UDKakugo Pr6N M"});
+    CHECK(old.serif == "Georgia" && old.sans == "Avenir Next");
+    const auto modern = systemFonts({"Rakuten Serif", "Rakuten Sans"});
+    CHECK(modern.serif == "Rakuten Serif" && modern.sans == "Rakuten Sans");
+    const auto both = systemFonts({"Georgia", "Avenir Next", "Rakuten Serif", "Rakuten Sans"});
+    CHECK(both.serif == "Rakuten Serif" && both.sans == "Rakuten Sans");
+    const auto mixed = systemFonts({"Georgia", "Rakuten Sans"});
+    CHECK(mixed.serif == "Georgia" && mixed.sans == "Rakuten Sans");
+    const auto unknown = systemFonts({});
+    CHECK(unknown.serif == "DefaultSerif" && unknown.sans == "DefaultSansSerif");
+}
 } // namespace
 int main() {
     checkBounds();
+    checkSystemFonts();
     return failures ? 1 : 0;
 }
