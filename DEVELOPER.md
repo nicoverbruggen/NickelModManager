@@ -199,7 +199,7 @@ Qt6 releases for firmware 5.x and 6.x remain under active development. Build and
 
 ### Additional device coverage
 
-Qt5 has been tested on physical devices. This does not cover every device and firmware combination. The Elipsa 2E density rule (227 ppi for a 1404 pixel wide screen) still needs a device check.
+Qt5 has been tested on physical devices. This does not cover every device and firmware combination. Stock-firmware runtime checks on Elipsa 2E 4.38.23697 passed for 227 ppi layout geometry, About navigation, touch controls, mod enable/disable across restarts and deletion-marker removal. The density check uses the screen's shorter edge because Qt initially reports landscape dimensions before Nickel sets portrait orientation. Physical Elipsa 2E touch and e-ink behavior still need a device check.
 
 ## History
 

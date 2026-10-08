@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.2
+
+- Fixed a display issue on Kobo Elipsa and Kobo Elipsa 2E devices.
+
 ## v0.1
 
 - First release, for firmware 4.x.

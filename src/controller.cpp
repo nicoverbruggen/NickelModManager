@@ -54,9 +54,12 @@ class Controller final : public QObject {
 #endif
         font_ = QApplication::font();
         font_.setFamily("DefaultSansSerif");
-        // The Elipsa 2E is the only 227 ppi screen among the Qt6 devices.
+        // The Elipsa 2E has a 1404-pixel short edge. Nickel can start with the
+        // screen in landscape before switching to portrait, so use both axes.
         const auto *screen = QApplication::primaryScreen();
-        density_ = screen && screen->size().width() == 1404 ? 227 : 300;
+        density_ = screen && qMin(screen->size().width(), screen->size().height()) == 1404
+                       ? 227
+                       : 300;
         attachNickel(this, [this] { openManager(); }, [this](QWidget *main) { reachedHome(main); });
     }
 
