@@ -1,0 +1,15 @@
+{
+  "project": "Lucide",
+  "repository": "https://github.com/lucide-icons/lucide",
+  "revision": "951813ce76a859d4d8b145366972cbb237147a4e",
+  "license": "ISC and MIT",
+  "files": {
+    "arrow-left.svg": "c5f4b88076108eb1a0d95336e1aa7e7bb1419a3a92af96f6247d88cd3456f933",
+    "chevron-right.svg": "2758143d7b2434e4aa7307dfd34405c87909ff4052f21b5f3f40d45224b4f19b",
+    "rotate-cw.svg": "ddcfe6d87240475946935e77411cd4d15a06f3d28a9b921bafed224ebe953668",
+    "blocks.svg": "2bab1f7d783686678219b8f38667025d81a536430271214db73684647a53a2d8",
+    "lock.svg": "d2cfe60cac8deaef36442b5c8218c1e61abe18222784b2a370ea090d13fca840",
+    "info.svg": "bc977a64eb96f3e9c1041ffd09a3fceb70e3e65c02b571f76064062ed31f3cb9",
+    "circle-alert.svg": "ce3e98b7a03b78c0071131df42466e4e1ff5187fccad30e739ec9ce951cf685a"
+  }
+}
