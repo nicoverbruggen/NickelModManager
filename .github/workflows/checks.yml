@@ -1,0 +1,51 @@
+name: Checks
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  qt5:
+    name: Qt5 (firmware 4.x)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      # The same command as a local build: the kobuild image builds the
+      # package and runs the tests under QEMU. A tag build shows the tag's
+      # version on the About page; other builds show `git describe`.
+      - name: Build and test
+        run: sh tools/build.sh --qt 5 --test
+        env:
+          NMM_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: NickelModManager
+          path: build/qt5/KoboRoot.tgz
+          if-no-files-found: error
+
+  qt6:
+    # Firmware 5.x and 6.x support is under development and not released yet.
+    # Building and testing it keeps the shared source compiling for Qt 6.5.
+    name: Qt6 (firmware 5.x and 6.x, in development)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Build and test
+        run: sh tools/build.sh --qt 6 --test
+        env:
+          NMM_VERSION: ${{ github.ref_type == 'tag' && github.ref_name || '' }}

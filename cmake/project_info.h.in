@@ -2,7 +2,7 @@
 
 namespace NickelModManager {
 namespace ProjectInfo {
-constexpr const char version[] = "@PROJECT_VERSION@";
+constexpr const char version[] = "@NICKELMODMANAGER_VERSION@";
 constexpr const char author[] = "Nico Verbruggen";
 constexpr const char repository[] = "https://github.com/nicoverbruggen/NickelModManager";
 constexpr const char license[] = "MIT";

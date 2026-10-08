@@ -1,5 +1,8 @@
 cmake_minimum_required(VERSION 3.13)
-project(nickelmodmanager VERSION 0.1.0 LANGUAGES CXX)
+project(nickelmodmanager LANGUAGES CXX)
+# The version shown on the About page. A release passes its tag's version;
+# tools/build.sh passes `git describe` for other builds.
+set(NICKELMODMANAGER_VERSION "dev" CACHE STRING "Version shown on the About page")
 configure_file(cmake/project_info.h.in project_info.h @ONLY)
 # Firmware 4.x ships Qt 5.2.1; firmware 5.x and 6.x ship Qt 6.5.
 set(NICKELMODMANAGER_QT 6 CACHE STRING "Qt major version to build against: 5 or 6")

@@ -4,6 +4,7 @@ set -eu
 qt=$1
 tests=$2
 probes=$3
+version=$4
 output=build/qt$qt
 runtime=/usr/arm-linux-gnueabihf
 case "$qt" in
@@ -16,6 +17,7 @@ esac
 cmake -S . -B "$output" -G Ninja -DCMAKE_BUILD_TYPE=Release \
     "-DNICKELMODMANAGER_QT=$qt" "-DCMAKE_TOOLCHAIN_FILE=$CMAKE_TOOLCHAIN_FILE" \
     "-DBUILD_TESTING=$tests" "-DNICKELMODMANAGER_PROBES=$probes" \
+    "-DNICKELMODMANAGER_VERSION=$version" \
     "-DCMAKE_CROSSCOMPILING_EMULATOR=qemu-arm;-L;$runtime;-E;LD_LIBRARY_PATH=$libraries"
 cmake --build "$output"
 if [ "$tests" = ON ]; then

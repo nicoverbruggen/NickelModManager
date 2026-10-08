@@ -20,7 +20,7 @@ Add `--probes` to build and package the `probe-a` and `probe-b` test mods. These
 
 One C++14 source tree serves both Qt versions. `src/compat.h` and a few checks of `QT_VERSION` cover the parts of Qt that 5.2.1 does not have. Each kobuild image supplies its CMake toolchain.
 
-`CMakeLists.txt` declares the project version, initially `0.1.0`. CMake generates `project_info.h` from `cmake/project_info.h.in` with that version and the author, project URL and licence. The manager's details page displays this information from the compiled library. Update the project version before building a new release. The CMake target retains the project name and sets its output filename to `libnickelmm.so`.
+The version comes from the build, not from `CMakeLists.txt`. `tools/build.sh` uses `--version` or `NMM_VERSION` when given, and otherwise `git describe --tags --always --dirty` for the checkout, such as `0.1.0` on a tagged commit or `71e1e8e-dirty` between releases. A leading `v` is dropped, and a version with characters other than letters, digits, `.`, `_`, `+` and `-` is refused. CMake receives it as `NICKELMODMANAGER_VERSION`, `dev` when unset, and generates `project_info.h` from `cmake/project_info.h.in` with it and the author, project URL and licence. The manager's details page displays this information from the compiled library. The CMake target retains the project name and sets its output filename to `libnickelmm.so`.
 
 On firmware 4.x, Nickel delivers taps as touch events. Its own buttons take them directly, and Qt 5.2 does not turn an unhandled touch into a mouse click for other widgets. So on Qt 5 every button and switch in NickelModManager takes the touch itself and clicks when the finger lifts inside it.
 
@@ -36,6 +36,7 @@ C++ code uses the `NickelModManager` namespace.
 - `src/ui/` owns the manager dialog, controls, pagination, notices, menu row and icon paths. `icons/` keeps the pinned Lucide references and licence.
 - `tests/` holds C++ tests. CTest runs them; `BUILD_TESTING=OFF` excludes them from the build.
 - `tools/` holds the shell build wrapper and its container commands. `cmake/` holds byte embedding.
+- `.github/workflows/` holds the checks and the release workflow.
 - `probe/` holds test mods. `NICKELMODMANAGER_PROBES=ON` builds them independently of the manager plugin.
 
 ## Startup and removal
@@ -161,6 +162,12 @@ To use real stock scripts on a Linux host, set `FIRMWARE_ROOT` to an extracted 5
 `tests/lifecycle_test.cpp` checks first-run marker creation, confirmation, arming only for a new library or firmware, damaged or missing confirmation records, both uninstall triggers, settings-folder deletion, shutdown-hook cleanup, preservation of other mods and saved state, reinstall after removal or interrupted startup, refusal to overwrite a newer package, and cleanup failures. These filesystem tests do not establish Qt's plugin-loading behavior on firmware.
 
 A normal `sh tools/build.sh` excludes tests and probes. `--test` enables tests and runs them through CTest under QEMU. `--probes` enables the separate probe packages. Direct CMake builds default to including tests through `BUILD_TESTING`; use `-DBUILD_TESTING=OFF` for a library-only build.
+
+## Continuous integration and releases
+
+`.github/workflows/checks.yml` runs on every push to `main` or `develop` and on pull requests. It runs `sh tools/build.sh --qt 5 --test` and `sh tools/build.sh --qt 6 --test`, the same commands as a local build, and uploads the Qt5 `KoboRoot.tgz` as the `NickelModManager` artifact. Support for firmware 5.x and 6.x is under development, so the Qt6 job only keeps the shared source building and tested; it uploads nothing.
+
+A tag build passes the tag to `tools/build.sh` as the version, so the released library shows it on the details page. To release, add a `## vX.Y.Z` section to `CHANGELOG.md` and push a matching `vX.Y.Z` tag. `.github/workflows/release.yml` runs the checks, refuses a tag without a changelog section, and publishes `KoboRoot.tgz` with that section as the release notes.
 
 ## Device test of the restore hook
 
