@@ -8,6 +8,8 @@ sh tools/build.sh
 
 Start Docker. The build wrapper uses POSIX shell; CMake embeds the shutdown script and icon licence. Icon geometry is ordinary C++ source, so there is no SVG converter or Python dependency. The script builds both packages with the public [kobuild](https://github.com/nicoverbruggen/kobuild) SDK images, `ghcr.io/nicoverbruggen/kobuild:qt5-v0.1.0` and `ghcr.io/nicoverbruggen/kobuild:qt6-v0.1.0`. Qt5 targets firmware 4.x; Qt6 targets firmware 5.x and 6.x. No local Qt SDK is required.
 
+Qt6 support for firmware 5.x and 6.x is under active development and is not included in releases. The Qt6 build commands and restoration behavior below describe that development work.
+
 To build only Qt6:
 
 ```sh
@@ -43,7 +45,7 @@ C++ code uses the `NickelModManager` namespace.
 
 The entry point uses Qt's image-plugin discovery and startup callback. It does not link NickelHook, resolve private Nickel symbols or patch Nickel functions. `src/nickel.cpp` observes Qt widget events and checks widget names and layout shape. Firmware compatibility still needs runtime checks because those names and layouts can change.
 
-The Qt5 compatibility baselines are Libra Colour 4.42.23033 and Libra 2 4.38.23697. Clara BW 4.45 is an additional target for the first hardware check. These baselines do not establish support for every firmware 4 release or physical-device behavior.
+The minimum supported firmware is 4.23.15548. The Qt5 compatibility baselines also include Libra Colour 4.42.23033, Libra 2 4.38.23697 and Clara BW 4.45. Checks on these baselines do not establish compatibility with every device and firmware combination.
 
 On first startup, `src/entrypoint/lifecycle.cpp` creates `.adds/nickel-mod-manager/uninstall` and records completion in `.adds/.nickel-mod-manager.initialized`. Later starts never recreate a deleted marker. The receipt is outside the settings folder, so deleting that folder requests removal too. An `uninstall-now` file also requests removal, including before the first initialization.
 
@@ -102,6 +104,8 @@ A Kobo app update that arrives as `Kobo.tgz` deletes only the files listed in th
 The first start on other firmware arms NickelModManager's own startup failsafe again. Each mod protects itself through its NickelHook failsafe; see Mods that fail to load.
 
 ### Restore after firmware updates
+
+Automatic restoration on firmware 5.x and 6.x is part of the Qt6 support under active development. The implementation and test procedure below do not establish release readiness.
 
 This setting is in the System updates section of NickelModManager's page. On firmware 5.x and 6.x it is a switch, on by default, and greyed out when the stock update scripts are not the ones NickelModManager knows. Turning it off writes `.adds/nickel-mod-manager/restore-off`; turning it on again deletes that file. On firmware 4.x the row shows a lock instead of a switch and says the feature is not needed, because system updates there keep installed mods.
 
@@ -167,9 +171,9 @@ A normal `sh tools/build.sh` excludes tests and probes. `--test` enables tests a
 
 A tag build passes the tag to `tools/build.sh` as the version, so the released library shows it on the details page. To release, add a `## vX.Y.Z` section to `CHANGELOG.md` and push a matching `vX.Y.Z` tag. `.github/workflows/release.yml` runs the checks, refuses a tag without a changelog section, and publishes `KoboRoot.tgz` with that section as the release notes.
 
-## Device test of the restore hook
+## Qt6 development: device test of the restore hook
 
-On a Clara Colour with 6.0.276679:
+This procedure validates the restore hook for the Qt6 release work, which remains under active development. On a Clara Colour with 6.0.276679:
 
 1. Back up user storage. Check that `.kobo` holds no `Kobo.tgz`, `KoboRoot.tgz` or `update.tar`.
 2. Copy `build/qt6/Kobo.tgz` to `.kobo/`, eject and restart. Add one real mod the same way, for example NickelMenu, and restart again.
@@ -181,18 +185,21 @@ On a Clara Colour with 6.0.276679:
 
 If the update ends without the mods, read `restore.log` first. A `SKIP` line names the check that stopped the hook. No line at all means `rc` did not run the hook after stage 1, or `.kobo/update.tar` was gone by then.
 
-## Not verified
+## Qt6 release validation
 
-These need a device:
+Qt6 releases for firmware 5.x and 6.x remain under active development. Build and automated test results do not replace the following device checks:
 
 - That the reboot at the end of stage 1 runs the `rc6.d` entries, that `ntx_hwconfig` reports the recovery partition then, and in which format.
 - That recovery stage 2 leaves `.kobo/Kobo.tgz` in place. Its scripts were not available.
 - That `sync` and the rename on the device's FAT leave a complete package after the reboot.
-- That the system partition is writable while Nickel runs, and that a deleted library stays usable in the running Nickel.
-- That `/sbin/reboot` restarts the device when Nickel calls it, and whether Nickel's normal quit runs on a device power-off.
-- Panel refresh on e-ink.
-- Real mods such as NickelMenu or Kobalt in the manager.
-- Other devices and firmware builds, including Kobo's other 4.x devices. The Elipsa 2E density rule (227 ppi for a 1404 pixel wide screen) has not run.
+- That the system partition is writable while Nickel runs on Qt6 firmware, and that a deleted library stays usable in the running Nickel.
+- That `/sbin/reboot` restarts a Qt6 device when Nickel calls it, and whether Nickel's normal quit runs on a device power-off.
+- Panel refresh and touch interaction on Qt6 devices.
+- Managing real Qt6 mods, including their startup failsafes and restoration after a full firmware update.
+
+### Additional device coverage
+
+Qt5 has been tested on physical devices. This does not cover every device and firmware combination. The Elipsa 2E density rule (227 ppi for a 1404 pixel wide screen) still needs a device check.
 
 ## History
 
