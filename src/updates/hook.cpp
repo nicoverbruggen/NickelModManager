@@ -67,7 +67,7 @@ QByteArray UpdateHook::script() {
 }
 
 QVector<QPair<QString, QStringList>> UpdateHook::contract() {
-    // These are the stock scripts inspected for the restore experiment.
+    // These are the stock scripts accepted for restoration.
     // Exact hashes are a conservative guard; even a comment change rejects
     // the scripts. The shutdown script repeats the check before queuing.
     return {

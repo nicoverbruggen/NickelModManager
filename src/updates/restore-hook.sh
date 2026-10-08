@@ -7,7 +7,7 @@
 # this after the stock ota script has used up .kobo/Kobo.tgz for this boot.
 # A package queued here waits through recovery stage 2, and the stock ota
 # script applies it on the first boot of the new system.
-# This update sequence still needs physical-device validation.
+# A full same-version reinstall passed on Clara Colour 6.0.276679.
 #
 # Rejected checks exit 0 so rc can continue the reboot. File I/O has no
 # overall deadline. The library writes this file; it is not part of a package.

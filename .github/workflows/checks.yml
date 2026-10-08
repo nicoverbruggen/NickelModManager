@@ -34,7 +34,7 @@ jobs:
           if-no-files-found: error
 
   qt6:
-    name: Qt6 (firmware 6.0)
+    name: Qt6 (firmware 5.x/6.x)
     runs-on: ubuntu-latest
 
     steps:

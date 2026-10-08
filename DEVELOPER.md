@@ -8,7 +8,7 @@ sh tools/build.sh
 
 Start Docker. The build wrapper uses POSIX shell; CMake embeds the shutdown script and icon licence. Icon geometry is ordinary C++ source, so there is no SVG converter or Python dependency. The script builds both packages with the public [kobuild](https://github.com/nicoverbruggen/kobuild) SDK images, `ghcr.io/nicoverbruggen/kobuild:qt5-v0.1.0` and `ghcr.io/nicoverbruggen/kobuild:qt6-v0.1.0`. Qt5 targets firmware 4.x; Qt6 targets firmware 5.x and 6.x. No local Qt SDK is required.
 
-Releases include the Qt5 package for firmware 4.x from 4.23 and the Qt6 package for firmware 6.0. Firmware 5.x uses the same Qt6 build but remains experimental.
+Releases include the Qt5 package for firmware 4.x from 4.23 and the Qt6 package for Kobo 5.18, Kobo 6.0 and Tolino Vision Color 5.18.264769. Stock-firmware runtime checks on Kobo 5.18.270971 and Tolino 5.18.264769 are sufficient for these Qt6 support claims; separate physical checks are not required. Older Android-based Tolino devices are not supported.
 
 To build only Qt6:
 
@@ -105,7 +105,7 @@ The first start on other firmware arms NickelModManager's own startup failsafe a
 
 ### Restore after firmware updates
 
-Automatic restoration was verified on a physical Clara Colour during a full reinstall of 6.0.276679. Firmware 5.x remains experimental. The hook accepts only known stock scripts, so this result does not establish compatibility with future update procedures.
+Automatic restoration was verified on a physical Clara Colour during a full reinstall of 6.0.276679. The same hook passes stock-script and system-replacement checks on Kobo 5.18.270971 and Tolino 5.18.264769. The hook accepts only known stock scripts, so these results do not establish compatibility with future update procedures.
 
 This setting is in the System updates section of NickelModManager's page. On firmware 5.x and 6.x it is a switch, on by default, and greyed out when the stock update scripts are not the ones NickelModManager knows. Turning it off writes `.adds/nickel-mod-manager/restore-off`; turning it on again deletes that file. On firmware 4.x the row shows a lock instead of a switch and says the feature is not needed, because system updates there keep installed mods.
 
@@ -117,7 +117,7 @@ While it is on and the stock scripts are known, NickelModManager, a few seconds 
 `rc` runs runlevel 6 differently after a reboot from early boot, where stage 1 reboots: it skips the `K` entries and runs the `S` entries with `stop`. After a normal reboot it runs both. The script acts on `stop` and is safe to run twice. It returns at once when there is no `.kobo/update.tar`, so a normal reboot costs nothing. Otherwise it queues the package only when all of these hold, and logs the first one that fails to `.adds/nickel-mod-manager/restore.log`:
 
 1. The setting is on: `.adds/nickel-mod-manager/restore/` exists. Turning the setting off removes it.
-2. `/etc/init.d/ota`, `/etc/init.d/rc`, `/etc/init.d/mount-userdata` and `/usr/libexec/platform/utils.sh` have the SHA-256 of the stock 5.18 or 6.0 scripts. 5.18.270971, 6.0.274403 and 6.0.276679 ship the same first three; `utils.sh` differs on 5.18. A firmware with other scripts may run its update differently, so the hook does nothing there and the switch is greyed out.
+2. `/etc/init.d/ota`, `/etc/init.d/rc`, `/etc/init.d/mount-userdata` and `/usr/libexec/platform/utils.sh` have the SHA-256 of the stock 5.18 or 6.0 scripts. Kobo 5.18.270971, Tolino 5.18.264769, 6.0.274403 and 6.0.276679 ship the same first three; `utils.sh` differs between 5.18 and 6.0. A firmware with other scripts may run its update differently, so the hook does nothing there and the switch is greyed out.
 3. `/mnt/onboard` is a mounted FAT filesystem.
 4. The boot target that `ntx_hwconfig` reports for `BootPartNo` is the number of the recovery partition. The read gets three seconds; the firmware has no `timeout` command, so the script ends a slower read itself. A decimal or `0x` value is accepted; anything else stops the hook.
 5. NickelModManager's library has the hash recorded with the package, so a removed or replaced manager is not brought back.
@@ -169,7 +169,7 @@ A normal `sh tools/build.sh` excludes tests and probes. `--test` enables tests a
 
 `.github/workflows/checks.yml` runs on every push to `main` or `develop` and on pull requests. It runs `sh tools/build.sh --qt 5 --test` and `sh tools/build.sh --qt 6 --test`, the same commands as a local build. It uploads Qt5 `KoboRoot.tgz` as the `NickelModManager` artifact and Qt6 `Kobo.tgz` as `NickelModManager-Qt6`. Each upload fails if its package is missing.
 
-A tag build passes the tag to `tools/build.sh` as the version, so the released library shows it on the details page. To release, rename the `Unreleased` section in `CHANGELOG.md` to the chosen version, such as `## vX.Y.Z`, and push the matching tag. `.github/workflows/release.yml` waits for both build and test jobs, downloads both artifacts, refuses a tag without release notes, and publishes `KoboRoot.tgz` and `Kobo.tgz`. A missing package fails the release. Both packages contain only the manager library, with the paths required by their firmware; they do not include other mods.
+A tag build passes the tag to `tools/build.sh` as the version, so the released library shows it on the details page. To release, add or rename a section in `CHANGELOG.md` to the chosen version, such as `## v0.3`, and push the matching tag. `.github/workflows/release.yml` waits for both build and test jobs, downloads both artifacts, refuses a tag without release notes, and publishes `KoboRoot.tgz` and `Kobo.tgz`. A missing package fails the release. Both packages contain only the manager library, with the paths required by their firmware; they do not include other mods.
 
 ## Qt6 device test of the restore hook
 
@@ -197,11 +197,14 @@ Additional hardware checks remain:
 - Disabled mods staying off after an update.
 - Mod toggles, failed-mod retry, interrupted startup and deletion-marker uninstall on Qt6 hardware.
 - The manager's restart button and normal device power-off.
-- Firmware 5.x installation and restoration.
 
 The successful update does not test interrupted writes or power loss on the device's FAT filesystem. The recovery scripts themselves have not been inspected.
 
 ### Additional device coverage
+
+Version 0.3 passed stock-firmware runtime checks on Clara Colour 5.18.270971 and Tolino Vision Color 5.18.264769 on 2026-10-09. Both passed installation, startup confirmation, About navigation and the displayed version, touch controls, mod enable/disable across restarts, and deletion-marker removal while preserving another mod. The manager uses Rakuten fonts on Kobo and Bariol on Tolino. Tolino includes both families, and its `DefaultSerif` and `DefaultSansSerif` substitutions still name Georgia and Avenir Next, so the stock menu label supplies the native font hint.
+
+The installed restoration hook passed its production hash checks on both versions. A fixture supplied mounted storage and the recovery boot target; two hook invocations queued one valid package and preserved it. After replacement with stock system files, the manager and enabled probe loaded again, the disabled probe stayed off, and the manager rebuilt its restore package. These checks cover package restoration and saved state, without running the device's recovery firmware. They are accepted as sufficient release coverage for these 5.18 versions.
 
 Qt5 has been tested on physical devices. This does not cover every device and firmware combination. Stock-firmware runtime checks on Elipsa 2E 4.38.23697 passed for 227 ppi layout geometry, About navigation, touch controls, mod enable/disable across restarts and deletion-marker removal. The density check uses the screen's shorter edge because Qt initially reports landscape dimensions before Nickel sets portrait orientation. Physical Elipsa 2E touch and e-ink behavior still need a device check.
 

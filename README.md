@@ -2,10 +2,10 @@
 
 NickelModManager adds the **Manage Mods** item to Nickel's **More** tab. It lists installed mods and lets you turn them off and on. Changes apply after a restart. It keeps a copy of each mod on user storage, so a mod you turn off can be turned on again later.
 
-The mod supports firmware 4.x from 4.23, and firmware 6.0.
+The mod supports Kobo firmware 4.x from 4.23, 5.18 and 6.0, and Tolino Vision Color software 5.18.264769.
 
 > [!NOTE]
-> Support for firmware 5.x remains experimental.
+> Older Android-based Tolino devices are not supported.
 
 <p>
     <kbd><img src="docs/more-menu.png" alt="Nickel's More menu with the Manage Mods entry" width="320"></kbd>
@@ -19,6 +19,7 @@ Download the package for your firmware from the [latest release](https://github.
 | Firmware | Package |
 | --- | --- |
 | 4.23 or newer within 4.x | `KoboRoot.tgz` |
+| Kobo 5.18 or Tolino Vision Color 5.18.264769 | `Kobo.tgz` |
 | 6.0 | `Kobo.tgz` |
 
 Copy the package to `.kobo/` on the eReader, safely eject it and disconnect USB. Let the device finish installing. Use the package name as downloaded.
@@ -27,7 +28,7 @@ Tap **More** > **Manage Mods** to change which mods load at the next start. Mods
 
 Ordinary NickelHook-based mods need no changes to work with the manager. Each mod remains responsible for its own compatibility checks and hooks.
 
-On firmware 6.0, **Restore after firmware updates** is on by default. It restores the manager and enabled mods after full updates whose stock scripts it supports. Open the manager's About page to check this setting. Restoration has been verified on a Clara Colour reinstalling 6.0.276679.
+On firmware 5.18 and 6.0, **Restore after firmware updates** is on by default. It restores the manager and enabled mods after full updates whose stock scripts it supports. Open the manager's About page to check this setting. Restoration has been verified on a Clara Colour reinstalling 6.0.276679.
 
 ## Remove
 
