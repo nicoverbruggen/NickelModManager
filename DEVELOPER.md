@@ -105,7 +105,7 @@ The first start on other firmware arms NickelModManager's own startup failsafe a
 
 ### Restore after firmware updates
 
-Automatic restoration on firmware 5.x and 6.x is part of the Qt6 support under active development. The implementation and test procedure below do not establish release readiness.
+Automatic restoration was verified on a physical Clara Colour during a full reinstall of 6.0.276679. Firmware 5.x remains experimental. The hook accepts only known stock scripts, so this result does not establish compatibility with future update procedures.
 
 This setting is in the System updates section of NickelModManager's page. On firmware 5.x and 6.x it is a switch, on by default, and greyed out when the stock update scripts are not the ones NickelModManager knows. Turning it off writes `.adds/nickel-mod-manager/restore-off`; turning it on again deletes that file. On firmware 4.x the row shows a lock instead of a switch and says the feature is not needed, because system updates there keep installed mods.
 
@@ -126,7 +126,7 @@ While it is on and the stock scripts are known, NickelModManager, a few seconds 
 
 It then copies the package to a temporary name in `.kobo`, checks the copy's hash, renames it to `Kobo.tgz` and syncs. Nothing else writes `.kobo` during shutdown; the only other writer is the script's own second run, which finds the package and stops.
 
-On the first boot of the new system, the stock `ota` script extracts the package under `/usr/local/Kobo` before Nickel starts. NickelModManager then sees the firmware change, arms its own startup failsafe, and writes its shutdown entries again a few seconds after Home is up, because the new system has none. Mods that were off stay off; they are not in the package.
+On the first boot of the new system, the stock `ota` script extracts the package under `/usr/local/Kobo` before Nickel starts. NickelModManager arms its own startup failsafe when the library or firmware identity changed, and writes its shutdown entries again a few seconds after Home is up, because the new system has none. A same-version reinstall also restores mods; the shutdown hook does not require a version change. Mods that were off stay off; they are not in the package.
 
 Turning the switch off removes the shutdown entries and the package. NickelModManager only removes files that are its own: the script must carry its marker line and the links must point at it. It refuses to write over a script or link that is not its own. Marker-based uninstall turns restoration off and removes these entries before deleting the manager library.
 
@@ -171,31 +171,35 @@ A normal `sh tools/build.sh` excludes tests and probes. `--test` enables tests a
 
 A tag build passes the tag to `tools/build.sh` as the version, so the released library shows it on the details page. To release, add a `## vX.Y.Z` section to `CHANGELOG.md` and push a matching `vX.Y.Z` tag. `.github/workflows/release.yml` runs the checks, refuses a tag without a changelog section, and publishes `KoboRoot.tgz` with that section as the release notes.
 
-## Qt6 development: device test of the restore hook
+## Qt6 device test of the restore hook
 
-This procedure validates the restore hook for the Qt6 release work, which remains under active development. On a Clara Colour with 6.0.276679:
+Use this procedure to check restoration on a physical device. The baseline is Clara Colour 6.0.276679:
 
 1. Back up user storage. Check that `.kobo` holds no `Kobo.tgz`, `KoboRoot.tgz` or `update.tar`.
-2. Copy `build/qt6/Kobo.tgz` to `.kobo/`, eject and restart. Add one real mod the same way, for example NickelMenu, and restart again.
+2. Copy `build/qt6/Kobo.tgz` to `.kobo/`, eject and disconnect USB. Add one compatible Qt6 mod the same way, then confirm that both work.
 3. Open More, Manage Mods. Check that both show as On, and that Restore after firmware updates is on.
 4. Connect by USB. `.adds/nickel-mod-manager/restore/` should hold `Kobo.tgz`, `Kobo.tgz.sha256`, `manager.sha256` and `manifest`. `Kobo.tgz` should list `imageformats/libnickelmm.so` and the real mod.
-5. Eject and run a full update. Kobo's own update to a newer build works. So does `update.tar` from the firmware ZIP copied to `.kobo/`; reinstalling the same build this way has not been tried.
+5. Copy `update.tar` from the device's full firmware ZIP to `.kobo/`, eject and disconnect USB. Reinstalling 6.0.276679 this way passed the baseline check. An update to a different version needs its own check.
 6. After the update, open Manage Mods. Both should show as On, the real mod should work, and no reinstall should be needed.
 7. Connect by USB and keep `.adds/nickel-mod-manager/restore.log`. It shows the raw boot target value and `QUEUED`, or the first check that failed.
 
 If the update ends without the mods, read `restore.log` first. A `SKIP` line names the check that stopped the hook. No line at all means `rc` did not run the hook after stage 1, or `.kobo/update.tar` was gone by then.
 
-## Qt6 release validation
+## Qt6 hardware validation
 
-Qt6 releases for firmware 5.x and 6.x remain under active development. Build and automated test results do not replace the following device checks:
+On 2026-10-09, NickelModManager and NickelHome's Qt6 build were installed on a physical Clara Colour running 6.0.276679. The tester confirmed that both worked and automatic restoration was on. The device then reinstalled the same firmware from its full `update.tar` without reinstalling either mod manually. The tester confirmed that both still worked afterwards.
 
-- That the reboot at the end of stage 1 runs the `rc6.d` entries, that `ntx_hwconfig` reports the recovery partition then, and in which format.
-- That recovery stage 2 leaves `.kobo/Kobo.tgz` in place. Its scripts were not available.
-- That `sync` and the rename on the device's FAT leave a complete package after the reboot.
-- That the system partition is writable while Nickel runs on Qt6 firmware, and that a deleted library stays usable in the running Nickel.
-- That `/sbin/reboot` restarts a Qt6 device when Nickel calls it, and whether Nickel's normal quit runs on a device power-off.
-- Panel refresh and touch interaction on Qt6 devices.
-- Managing real Qt6 mods, including their startup failsafes and restoration after a full firmware update.
+Inspection over USB confirmed that `update.tar` and the queued `Kobo.tgz` were consumed. The hook log first recorded `0x0A` with recovery partition 11 and skipped queuing. During the update's recovery reboot it recorded `0x0B`, queued the package, and kept it on the second invocation. NickelHome logged a post-update startup with its hooks resolved. The manager's confirmation record was present, and its rebuilt restore archive passed its hash check and contained both libraries. This verifies restoration through the physical recovery process for this same-version reinstall.
+
+Additional hardware checks remain:
+
+- Full updates to a different firmware version and other Qt6 device models.
+- Disabled mods staying off after an update.
+- Mod toggles, failed-mod retry, interrupted startup and deletion-marker uninstall on Qt6 hardware.
+- The manager's restart button and normal device power-off.
+- Firmware 5.x installation and restoration.
+
+The successful update does not test interrupted writes or power loss on the device's FAT filesystem. The recovery scripts themselves have not been inspected.
 
 ### Additional device coverage
 
