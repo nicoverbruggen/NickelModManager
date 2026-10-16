@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # NickelModManager: put the manager and the mods that are on back after a
 # full firmware update on 5.x and 6.x.
 #
@@ -9,8 +9,9 @@
 # script applies it on the first boot of the new system.
 # A full same-version reinstall passed on Clara Colour 6.0.276679.
 #
-# Rejected checks exit 0 so rc can continue the reboot. File I/O has no
-# overall deadline. The library writes this file; it is not part of a package.
+# Rejected checks exit 0 so rc can continue the reboot. A supervisor stops
+# restoration after 30 seconds. The library writes this file; it is not
+# part of a package.
 #
 # Tests pass --fixture=ROOT: every path is under ROOT, the boot target comes
 # from ROOT/boot-target with recovery as 7, and ROOT/mounted stands for a
@@ -23,6 +24,51 @@ case "$2" in --fixture=/*) root=${2#--fixture=} ;; esac
 kobo=$root/mnt/onboard/.kobo
 state=$root/mnt/onboard/.adds/nickel-mod-manager
 restore=$state/restore
+
+# Supported Qt6 firmware supplies Bash. Its timed pipe read needs no timer
+# process, and timeout cleanup must not write to storage or standard error.
+# Keep filesystem work in a separate process group. A process stuck in kernel
+# I/O can remain after SIGKILL until the kernel returns, so cleanup never waits
+# for the worker to exit.
+if [ "$3" != --worker ]; then
+    command -v setsid >/dev/null 2>&1 || exit 0
+    # setsid must retain its PID so it is also the worker's process-group ID.
+    set +m
+    worker=
+    interrupted=
+    cleanup() {
+        trap '' HUP INT TERM
+        if [ -n "$worker" ]; then
+            # Stop the leader first, including when setsid has not started.
+            # Then stop children already running in its separate group.
+            kill -KILL "$worker" 2>/dev/null
+            kill -KILL "-$worker" 2>/dev/null
+        fi
+        exec 3<&-
+    }
+    trap cleanup 0
+    # A signal between spawning and saving $! must not lose the worker PID.
+    trap 'interrupted=yes' HUP INT TERM
+    exec 3< <(exec setsid bash "$0" stop "$2" --worker)
+    worker=$!
+    [ -z "$interrupted" ] || exit 0
+    trap 'exit 0' HUP INT TERM
+    deadline_seconds=30
+    IFS= read -r -t "$deadline_seconds" result <&3
+    status=$?
+    # EOF without a completion message means the worker failed to start and
+    # its pipe has no remaining writers. Do not signal a PID it released.
+    if [ "$status" -eq 1 ] && [ -z "$result" ]; then
+        worker=
+    fi
+    exit 0
+fi
+
+# Reserve stdout for one completion message. Stay alive afterwards so the
+# supervisor can kill the group without risking a reused leader PID. Child
+# commands inherit fd 3, but their ordinary output cannot fill this pipe.
+exec 3>&1 </dev/null >/dev/null 2>&1
+trap 'printf "%s\n" done >&3; kill -STOP $$' 0
 
 # A normal reboot has no staged update. Say nothing then.
 [ -f "$kobo/update.tar" ] && [ ! -L "$kobo/update.tar" ] || exit 0

@@ -130,7 +130,11 @@ On the first boot of the new system, the stock `ota` script extracts the package
 
 Turning the switch off removes the shutdown entries and the package. NickelModManager only removes files that are its own: the script must carry its marker line and the links must point at it. It refuses to write over a script or link that is not its own. Marker-based uninstall turns restoration off and removes these entries before deleting the manager library.
 
-The script has no overall deadline. Its file operations are local, and a hung kernel I/O operation would stop a reboot with or without it.
+The hook uses Bash, which the supported Qt6 firmware supplies. It runs its checks and file operations in a separate process group under a supervisor. Bash's built-in timed read waits up to 30 seconds on a completion pipe, without a timer process. The supervisor sends SIGKILL to the worker leader first, then its group, after completion, timeout or HUP, INT or TERM. It returns success so `rc` can continue the reboot. The worker stays alive after reporting completion until the supervisor stops it, keeping its PID reserved during cleanup. If `setsid` is unavailable or the worker fails to start, the supervisor skips restoration.
+
+Timeout cleanup does not write to storage or standard output or error, because those writes could block. It does not wait for the killed worker. An interrupted copy can leave the temporary package, which the updater ignores and the next copy removes. If the final rename already completed, a complete package can remain queued after a timeout. A deadline cannot fix uninterruptible kernel I/O or guarantee that later shutdown steps can sync or unmount stalled storage. SIGKILL cannot be trapped; killing the supervisor that way bypasses its cleanup.
+
+Restoration and deadline fixture checks passed with stock Bash and `setsid` under QEMU for Kobo 5.18.270971, Kobo 6.0.274403, Kobo 6.0.276679 and Tolino 5.18.264769. These checks do not run the device's shutdown or recovery process. The new deadline still needs a physical-device check.
 
 ## Mods that fail to load
 
@@ -155,7 +159,7 @@ Add `--qt 5` or `--qt 6` to check one target. The tests run under QEMU inside th
 
 `tests/hook_test.cpp` checks the shutdown entries and the package in a temporary system: installation, executable mode, the link targets, the package's hashes and contents with the host `tar`, build dates in the archive, the skipped rewrite, entries put back after an update removed them, removal, refusal of a script or link that is not its own, and refusal on unknown stock scripts. It also checks that the library and `src/updates/restore-hook.sh` list the same stock hashes. Its package also passes `gunzip -t`, `tar -tf` and `tar -xzf` from the BusyBox of 6.0.276679, which the stock `ota` script uses.
 
-`tests/hook_script_test.cpp` runs the embedded shutdown script against temporary fixture systems. By default, it replaces the accepted hashes in the temporary script with hashes of synthetic stock files. The installed script is unchanged. It covers queuing once over two runs, boot target formats, a normal reboot, the setting off, unknown stock scripts, unmounted storage, a changed manager, a changed or damaged package, and an existing package. It needs `sha256sum` and `gunzip`; CTest reports a skip if they are unavailable.
+`tests/hook_script_test.cpp` runs the embedded shutdown script against temporary fixture systems. By default, it replaces the accepted hashes in the temporary script with hashes of synthetic stock files. It also shortens the fixture deadline to two seconds. The installed script is unchanged. It covers queuing once over two runs, boot target formats, a normal reboot, the setting off, unknown stock scripts, unmounted storage, a changed manager, a changed or damaged package, and an existing package. Deadline checks stall hashing, a partial copy and the final sync. They check that the supervisor returns success, stops child commands even when they ignore TERM, leaves an incomplete package unqueued and allows a later copy to replace it. A stall after the final rename leaves the complete package queued. Regression checks cover blocked diagnostic output, timer-command cleanup, HUP, INT and TERM interruption, worker startup failure, a stall before process-group creation, and child cleanup after normal completion. Every invocation checks that `update.tar` is unchanged. It needs `sha256sum`, `gunzip`, `setsid` and Bash; CTest reports a skip if they are unavailable.
 
 To use real stock scripts on a Linux host, set `FIRMWARE_ROOT` to an extracted 5.18 or 6.0 root filesystem when running `nmm_hook_script_test`. In this mode, the test uses the production hash checks without substitution. The container build uses synthetic fixtures and needs no firmware files.
 
@@ -197,6 +201,7 @@ Additional hardware checks remain:
 - Disabled mods staying off after an update.
 - Mod toggles, failed-mod retry, interrupted startup and deletion-marker uninstall on Qt6 hardware.
 - The manager's restart button and normal device power-off.
+- The 30-second shutdown deadline on Qt6 hardware.
 
 The successful update does not test interrupted writes or power loss on the device's FAT filesystem. The recovery scripts themselves have not been inspected.
 
