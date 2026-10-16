@@ -134,7 +134,7 @@ The hook uses Bash, which the supported Qt6 firmware supplies. It runs its check
 
 Timeout cleanup does not write to storage or standard output or error, because those writes could block. It does not wait for the killed worker. An interrupted copy can leave the temporary package, which the updater ignores and the next copy removes. If the final rename already completed, a complete package can remain queued after a timeout. A deadline cannot fix uninterruptible kernel I/O or guarantee that later shutdown steps can sync or unmount stalled storage. SIGKILL cannot be trapped; killing the supervisor that way bypasses its cleanup.
 
-Restoration and deadline fixture checks passed with stock Bash and `setsid` under QEMU for Kobo 5.18.270971, Kobo 6.0.274403, Kobo 6.0.276679 and Tolino 5.18.264769. These checks do not run the device's shutdown or recovery process. The new deadline still needs a physical-device check.
+Restoration and deadline fixture checks passed with stock Bash and `setsid` under QEMU for the supported Qt6 firmware versions. Forced deadline expiry and cleanup have not been tested on hardware.
 
 ## Mods that fail to load
 
@@ -191,19 +191,7 @@ If the update ends without the mods, read `restore.log` first. A `SKIP` line nam
 
 ## Qt6 hardware validation
 
-On 2026-10-09, NickelModManager and NickelHome's Qt6 build were installed on a physical Clara Colour running 6.0.276679. The tester confirmed that both worked and automatic restoration was on. The device then reinstalled the same firmware from its full `update.tar` without reinstalling either mod manually. The tester confirmed that both still worked afterwards.
-
-Inspection over USB confirmed that `update.tar` and the queued `Kobo.tgz` were consumed. The hook log first recorded `0x0A` with recovery partition 11 and skipped queuing. During the update's recovery reboot it recorded `0x0B`, queued the package, and kept it on the second invocation. NickelHome logged a post-update startup with its hooks resolved. The manager's confirmation record was present, and its rebuilt restore archive passed its hash check and contained both libraries. This verifies restoration through the physical recovery process for this same-version reinstall.
-
-Additional hardware checks remain:
-
-- Full updates to a different firmware version and other Qt6 device models.
-- Disabled mods staying off after an update.
-- Mod toggles, failed-mod retry, interrupted startup and deletion-marker uninstall on Qt6 hardware.
-- The manager's restart button and normal device power-off.
-- The 30-second shutdown deadline on Qt6 hardware.
-
-The successful update does not test interrupted writes or power loss on the device's FAT filesystem. The recovery scripts themselves have not been inspected.
+Automatic restoration passed a same-version reinstall of 6.0.276679 on a physical Clara Colour. Validation with an update to a new firmware version on a physical device is still required.
 
 ### Additional device coverage
 
