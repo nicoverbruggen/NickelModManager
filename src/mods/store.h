@@ -36,6 +36,11 @@ class ModStore {
     // rolled back if a later operation, including saving state, fails.
     bool setEnabled(const QString &file, bool enabled, QString &error);
 
+    // forget removes a disabled, unloaded mod's saved library and state entry.
+    // Refuses installed or held libraries. Mod-owned settings are untouched.
+    // If saving state fails, the entry remains for retry but its copy is gone.
+    bool forget(const QString &file, QString &error);
+
     // mods returns a borrowed view. Do not retain element references across
     // start or rescan, which can append or reorder entries.
     const QVector<Mod> &mods() const { return mods_; }

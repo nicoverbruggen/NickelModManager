@@ -1,4 +1,5 @@
 #pragma once
+#include "../mods/settings.h"
 #include <QDialog>
 #include <QFont>
 #include <QHash>
@@ -22,11 +23,13 @@ struct Context;
 struct Row {
     QString file, name, note;
     QString size, built; // "412 KB" and the build date "12 Jun 2026"; each empty when unknown.
+    QString version; // Optional metadata, verified against the library's SHA-256.
     bool enabled, loaded;
     // Failed to load: its NickelHook failsafe holds the library. It stays set
     // when the user turns the mod on again, so the row stays in the Failed to
     // load section until the next start shows the result.
     bool blocked;
+    ModDetails details;
 };
 // Manager displays the mod list and manager settings. The controller handles
 // file changes through the callbacks below. Use this class on the GUI thread.
@@ -37,20 +40,24 @@ class Manager final : public QDialog {
     // setRows replaces the snapshot. A visible window defers rebuilding until
     // touch delivery finishes; a hidden window rebuilds before its first paint.
     void setRows(QVector<Row> rows, int pending);
+    void setPendingSettings(int count);
 
-    // Restore controls the System updates setting's availability.
+    // Restore controls the mod-restoration setting’s availability.
     // Unknown disables the switch; NotNeeded shows a lock for firmware 4.x.
     enum class Restore { Available, Unknown, NotNeeded };
 
-    // setRestore updates the setting without calling restoreToggled.
+    // setRestore refreshes the saved preference without invoking a callback.
     void setRestore(Restore mode, bool on);
+    void setUpdatePolicy(const QString &policy, bool available, const QString &reason);
+    std::function<void(QString, bool)> preferencesSaved;
 
-    // setManager updates the library filename and formatted date on the details page.
-    void setManager(const QString &file, const QString &built);
+    // setManager updates the library filename, formatted date and software family.
+    void setManager(const QString &file, const QString &built, const QString &software);
 
     // Callbacks run on the GUI thread for user clicks, not setter calls.
     std::function<void(QString, bool)> toggled;
-    std::function<void(bool)> restoreToggled;
+    std::function<void(QString)> forgotten;
+    std::function<void(QString)> detailsRequested;
     std::function<void()> restart;
 
     // showNotice opens a modal notice with this window as its parent.
@@ -58,21 +65,25 @@ class Manager final : public QDialog {
 
     // context returns the density, font and palette used by the window.
     Context context() const;
+    void reject() override;
 
   private:
     void applyAppearance(const QFont &font);
     void buildPageFrame(QVBoxLayout *layout);
     void buildListPage();
     void buildManagerPage();
-    QWidget *buildSectionLabel(const QString &title, QWidget *parent, const QString &name,
-                               int top);
+    QWidget *buildSectionLabel(const QString &title, QWidget *parent, const QString &name);
     QWidget *buildUpdateSettings(QWidget *parent);
     QWidget *buildFooter();
     void confirmRestart();
+    void updatePreferences();
+    bool discardPreferences();
+    void selectManagerTab(int index);
     void updateSummary();
     QWidget *buildModRow(const Row &row, QWidget *parent);
-    bool addSection(const QString &title, const QVector<Row> &rows, bool first);
+    void addSection(const QString &title, const QVector<Row> &rows);
     bool confirmRetry(const Row &row);
+    void showModActions(const Row &row);
     QVBoxLayout *buildRowDetails(const Row &row, QWidget *frame);
     void buildEmptyList(QWidget *parent);
     void scheduleRebuild();
@@ -86,14 +97,25 @@ class Manager final : public QDialog {
     QVector<Row> rows_;
     QHash<QString, QString> notes_; // Notes shown in this window, by library file.
     int pending_ = 0;
+    int pendingSettings_ = 0;
     Header *header_;
     QStackedWidget *pages_;
     ManagerCard *card_;
-    QLabel *built_, *library_, *restoreNote_, *restoreLock_;
+    QLabel *built_, *library_, *software_, *restoreNote_, *restoreLock_;
     Toggle *restoreToggle_;
     PagedList *list_;
     ActionButton *restart_;
     QWidget *version_;
+    QStackedWidget *managerTabs_;
+    QVector<ActionButton *> policyButtons_;
+    QVector<QWidget *> policyMarks_;
+    QLabel *policyReason_;
+    QWidget *preferencesFooter_;
+    ActionButton *preferencesSave_, *preferencesCancel_, *settingsTab_, *aboutTab_;
+    QString policy_ = "stock", policyDraft_ = "stock";
+    bool policyAvailable_ = false;
+    bool restoreOn_ = false, restoreDraft_ = false;
+    Restore restoreMode_ = Restore::Unknown;
 };
 } // namespace ui
 } // namespace NickelModManager

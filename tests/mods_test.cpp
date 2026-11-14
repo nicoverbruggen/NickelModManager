@@ -104,6 +104,69 @@ void removedOutsideAndUpdatedByInstaller() {
     CHECK(find(reinstalled, "libnm.so")->enabled && find(reinstalled, "libnm.so")->note.isEmpty());
 }
 
+void forgetDisabledMod() {
+    Device device;
+    device.write(device.plugins() + "/libnm.so", "menu");
+    device.write(device.plugins() + "/libother.so", "other");
+    auto active = device.store();
+    active.start();
+    QString error;
+    CHECK(!active.forget("libnm.so", error));
+    CHECK(active.setEnabled("libnm.so", false, error));
+    CHECK(!active.forget("libnm.so", error)); // It is still loaded this session.
+    CHECK(device.kept("libnm.so"));
+
+    auto store = device.store();
+    store.start();
+    // A fresh installation or either held file must prevent forgetting, even
+    // if no rescan has yet updated the disabled row.
+    for (const QString &path : {device.plugins() + "/libnm.so",
+                                device.plugins() + "/libnm.so.failsafe",
+                                device.root.path() + "/libnm.so.failsafe"}) {
+        device.write(path, "reinstalled");
+        CHECK(!store.forget("libnm.so", error));
+        CHECK(device.kept("libnm.so"));
+        CHECK(QFile::remove(path));
+    }
+    const QString settings = device.root.path() + "/onboard/.adds/settings-to-keep";
+    device.write(settings, "user settings");
+    CHECK(store.forget("libnm.so", error));
+    CHECK(!find(store, "libnm.so") && !device.kept("libnm.so"));
+    CHECK(find(store, "libother.so") && device.live("libother.so") && device.kept("libother.so"));
+    CHECK(device.read(settings) == "user settings");
+    store.rescan();
+    CHECK(!find(store, "libnm.so"));
+    auto restarted = device.store("rev-2");
+    CHECK(restarted.start().restored.isEmpty());
+    CHECK(!find(restarted, "libnm.so"));
+    CHECK(!store.forget("../libother.so", error));
+    CHECK(!store.forget("libnickelmm.so", error));
+
+    // Reinstallation is still discovered normally after Forget.
+    device.write(device.plugins() + "/libnm.so", "new install");
+    restarted.rescan();
+    CHECK(find(restarted, "libnm.so") && device.kept("libnm.so"));
+}
+
+void forgetFailure() {
+    Device device;
+    device.write(device.plugins() + "/libnm.so", "menu");
+    auto active = device.store();
+    active.start();
+    QString error;
+    CHECK(active.setEnabled("libnm.so", false, error));
+    auto store = device.store();
+    store.start();
+    const QString state = device.storage() + "/state.json";
+    CHECK(QFile::remove(state));
+    CHECK(QDir().mkdir(state)); // An unwritable state destination, even as root.
+    CHECK(!store.forget("libnm.so", error));
+    CHECK(find(store, "libnm.so") && !device.kept("libnm.so"));
+    CHECK(QDir().rmdir(state));
+    CHECK(store.forget("libnm.so", error)); // Retry works when the copy is gone.
+    CHECK(!find(store, "libnm.so"));
+}
+
 void firmwareUpdate() {
     Device device;
     device.write(device.plugins() + "/libnm.so", "menu");
@@ -274,6 +337,8 @@ void refusesChangedCopiesAndDamagedState() {
 int main() {
     firstStartAndToggles();
     removedOutsideAndUpdatedByInstaller();
+    forgetDisabledMod();
+    forgetFailure();
     firmwareUpdate();
     firmwareUpdateWithoutPutBack();
     failsafe();

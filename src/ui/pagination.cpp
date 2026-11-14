@@ -8,7 +8,7 @@
 namespace NickelModManager {
 namespace ui {
 namespace {
-const QColor line("#000000"); // Black like Nickel's own lines.
+const QColor line("#888888"); // Dark grey keeps page rules softer than text and controls.
 void polishTree(QWidget *widget) {
     widget->ensurePolished();
     for (auto *child : widget->findChildren<QWidget *>()) {

@@ -17,7 +17,8 @@ int failures = 0;
 void checkBounds() {
     using namespace NickelModManager::ui;
     for (const auto kind : {Icon::Back, Icon::ChevronRight, Icon::ChevronLeft, Icon::Restart,
-                            Icon::Blocks, Icon::Lock, Icon::Info, Icon::Alert}) {
+                            Icon::Blocks, Icon::Lock, Icon::Info, Icon::Alert, Icon::Settings,
+                            Icon::Download, Icon::Ask, Icon::Shield, Icon::Restore}) {
         const auto path = iconPath(kind);
         CHECK(!path.isEmpty());
         CHECK(QRectF(0, 0, 24, 24).contains(path.boundingRect()));
@@ -26,16 +27,12 @@ void checkBounds() {
             CHECK(std::isfinite(point.x) && std::isfinite(point.y));
         }
     }
-    CHECK(iconPath(Icon::Back).boundingRect() == QRectF(5, 5, 14, 14));
-    CHECK(iconPath(Icon::ChevronRight).boundingRect() == QRectF(9, 6, 6, 12));
-    CHECK(iconPath(Icon::Restart).boundingRect() == QRectF(3, 3, 18, 18));
-    CHECK(iconPath(Icon::Info).boundingRect() == QRectF(2, 2, 20, 20));
     QTransform mirror;
     mirror.translate(24, 0);
     mirror.scale(-1, 1);
     CHECK(iconPath(Icon::ChevronLeft) == mirror.map(iconPath(Icon::ChevronRight)));
     const QByteArray notice = iconNotice();
-    CHECK(notice.contains("Lucide") && notice.contains("Cole Bemis"));
+    CHECK(notice.contains("Phosphor Icons"));
 }
 void checkSystemFonts() {
     using NickelModManager::ui::systemFonts;

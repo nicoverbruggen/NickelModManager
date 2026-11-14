@@ -13,14 +13,12 @@
 namespace NickelModManager {
 namespace ui {
 namespace {
-// Lines are black like Nickel's own; grey only marks pressed and disabled states.
-const QColor line("#000000"), pressedFill("#555555"), disabledFill("#eeeeee"),
+// Separate row rules from control outlines so the list has less visual weight.
+const QColor line("#888888"), outline("#000000"), pressedFill("#555555"), disabledFill("#eeeeee"),
     disabledText("#666666");
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
-// Nickel on firmware 4.x delivers taps as touch events. Its own buttons take
-// them directly, and Qt 5.2 does not turn an unhandled touch into a mouse
-// click for other widgets. This makes a button take the touch itself: down
-// while the finger is on it, clicked when it lifts inside.
+// Take touch directly on both firmware generations. Qt5 does not synthesize
+// clicks for these controls. On Qt6 a touch-aware row would otherwise accept
+// the switch's unhandled touch before Qt could synthesize its mouse click.
 class TouchClick final : public QObject {
   public:
     explicit TouchClick(QAbstractButton *button) : QObject(button), button_(button) {
@@ -34,14 +32,20 @@ class TouchClick final : public QObject {
             return false;
         }
         const auto inside = [this, event] {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+            const auto points = static_cast<QTouchEvent *>(event)->points();
+            return !points.isEmpty() && button_->rect().contains(points.first().position().toPoint());
+#else
             const auto points = static_cast<QTouchEvent *>(event)->touchPoints();
             return !points.isEmpty() && button_->rect().contains(points.first().pos().toPoint());
+#endif
         };
         switch (event->type()) {
         case QEvent::TouchBegin:
             if (!button_->isEnabled()) {
                 return false;
             }
+            pressed_ = true;
             button_->setDown(true);
             event->accept();
             return true;
@@ -49,7 +53,8 @@ class TouchClick final : public QObject {
             button_->setDown(inside());
             return true;
         case QEvent::TouchEnd: {
-            const bool click = inside() && button_->isEnabled();
+            const bool click = pressed_ && inside() && button_->isEnabled();
+            pressed_ = false;
             button_->setDown(false);
             if (click) {
                 button_->click();
@@ -57,6 +62,7 @@ class TouchClick final : public QObject {
             return true;
         }
         case QEvent::TouchCancel:
+            pressed_ = false;
             button_->setDown(false);
             return true;
         default:
@@ -66,14 +72,10 @@ class TouchClick final : public QObject {
 
   private:
     QAbstractButton *button_;
+    bool pressed_ = false;
 };
-#endif
 void acceptTouch(QAbstractButton *button) {
-#if QT_VERSION < QT_VERSION_CHECK(6, 0, 0)
     new TouchClick(button);
-#else
-    Q_UNUSED(button);
-#endif
 }
 // horizontalAdvance arrived in Qt 5.11 and capHeight in Qt 5.8. Firmware
 // 4.x has Qt 5.2.1.
@@ -172,6 +174,30 @@ void Toggle::paintEvent(QPaintEvent *) {
     }
 }
 
+CircleButton::CircleButton(const QString &name, Icon glyph, const Context &context, QWidget *parent)
+    : QPushButton(parent), glyph_(glyph), context_(context) {
+    setAccessibleName(name);
+    setFocusPolicy(Qt::NoFocus);
+    enableTouch(this);
+    setFixedSize(context.px(88), context.px(88));
+}
+void CircleButton::paintEvent(QPaintEvent *) {
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing);
+    const auto colors = parentWidget()->palette();
+    const QColor ink = colors.color(QPalette::WindowText), paper = colors.color(QPalette::Window);
+    const bool down = isDown() && isEnabled();
+    if (!isEnabled()) {
+        painter.setOpacity(.35);
+    }
+    const QRectF circle = QRectF(rect()).adjusted(context_.px(7), context_.px(7), -context_.px(7), -context_.px(7));
+    painter.setPen(QPen(ink, context_.px(2)));
+    painter.setBrush(down ? ink : paper);
+    painter.drawEllipse(circle);
+    const int size = context_.px(36);
+    NickelModManager::ui::icon(glyph_, down ? paper : ink).paint(&painter, QRect((width()-size)/2, (height()-size)/2, size, size));
+}
+
 ActionButton::ActionButton(const QString &caption, QWidget *parent) : QPushButton(caption, parent) {
     setFocusPolicy(Qt::NoFocus);
     acceptTouch(this);
@@ -236,12 +262,12 @@ void ActionButton::paintEvent(QPaintEvent *) {
         fill = !isEnabled() ? disabledFill : down ? pressedFill : ink;
         textColor = isEnabled() ? paper : disabledText;
     } else if (down) {
-        fill = ink;
-        textColor = paper;
+        fill = layout() ? QColor("#dddddd") : ink;
+        textColor = layout() ? ink : paper;
     }
     painter.fillRect(rect(), fill);
     if (kind_ == ButtonKind::Outlined) {
-        painter.setPen(line);
+        painter.setPen(outline);
         painter.setBrush(Qt::NoBrush);
         painter.drawRect(QRectF(rect()).adjusted(.5, .5, -.5, -.5));
     }
@@ -254,6 +280,9 @@ void ActionButton::paintEvent(QPaintEvent *) {
     }
     if (rules_ & Qt::TopEdge) {
         painter.drawLine(QPointF(0, .5), QPointF(width(), .5));
+    }
+    if (rules_ & Qt::BottomEdge) {
+        painter.drawLine(QPointF(0, height() - .5), QPointF(width(), height() - .5));
     }
     if (layout()) {
         return;
@@ -320,8 +349,7 @@ void Divider::paintEvent(QPaintEvent *) {
 }
 
 Header::Header(const Context &context, QWidget *parent) : QWidget(parent), context_(context) {
-    // An arrow without a caption, and the page title large and centred in
-    // Nickel's title font.
+    // Keep the same interface font as the list and action menus.
     back = new ActionButton(QString(), context, this);
     back->setObjectName("nmmBack");
     back->setAccessibleName("Back");
@@ -333,11 +361,11 @@ Header::Header(const Context &context, QWidget *parent) : QWidget(parent), conte
     title->setTextFormat(Qt::PlainText);
     context.apply(title, 40);
     QFont serif = title->font();
-    serif.setFamily(context.serifFamily);
+    serif.setFamily(context.font.family());
     title->setFont(serif);
     title->setStyleSheet(QString("font-family:\"%1\";font-size:%2px;font-style:normal;"
                                  "font-weight:400;background:transparent;")
-                             .arg(context.serifFamily).arg(serif.pixelSize()));
+                             .arg(context.font.family()).arg(serif.pixelSize()));
     setFixedHeight(context.px(112));
 }
 void Header::setTitle(const QString &value) {

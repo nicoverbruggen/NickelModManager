@@ -1,10 +1,14 @@
 #include "controller.h"
 #include "compat.h"
 #include "nickel.h"
+#include "software.h"
+#include "mods/metadata.h"
 #include "ui/dialogs.h"
 #include "ui/fonts.h"
 #include "ui/manager.h"
+#include "ui/mod_settings.h"
 #include "updates/hook.h"
+#include "updates/policy.h"
 #include <QApplication>
 #include <QDateTime>
 #include <QFileInfo>
@@ -46,6 +50,7 @@ class Controller final : public QObject {
     Controller(NickelModManager::ModStore *store, NickelModManager::StartReport report,
                const QString &self, const QString &storage, std::function<void()> homeReady)
         : QObject(qApp), store_(store), report_(std::move(report)), self_(self),
+          adds_(QFileInfo(storage).absolutePath()), storage_(storage),
           homeReady_(std::move(homeReady)) {
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
         // Only a full update on 5.x and 6.x needs the shutdown hook.
@@ -53,6 +58,11 @@ class Controller final : public QObject {
 #else
         Q_UNUSED(storage);
 #endif
+        QString policyError;
+        policy_ = loadUpdatePolicy(storage_, policyError);
+        if (!policyError.isEmpty()) {
+            syslog(LOG_ERR, "NickelModManager: %s", qPrintable(policyError));
+        }
         font_ = QApplication::font();
         font_.setFamily(NickelModManager::ui::systemFonts().sans);
         // The Elipsa 2E has a 1404-pixel short edge. Nickel can start with the
@@ -72,7 +82,12 @@ class Controller final : public QObject {
     // process. Turning a mod on clears its parked flag and note in the store,
     // but the row stays under Failed to load until the next start.
     QSet<QString> retrying_;
+    QHash<QString, SettingValue> settingsAtStart_;
+    QSet<QString> pendingSettings_;
     QString self_;
+    QString adds_;
+    QString storage_;
+    UpdatePolicy policy_ = UpdatePolicy::Stock;
     std::function<void()> homeReady_;
     // WA_DeleteOnClose destroys the dialog. QPointer clears the reference
     // automatically so a later opening cannot reuse a deleted window.
@@ -85,9 +100,14 @@ class Controller final : public QObject {
         // The UI gets values rather than references into the store, which can
         // reorder its mod list during a rescan or a state change.
         QVector<NickelModManager::ui::Row> result;
+        const auto versions = NickelModManager::modVersions(adds_, store_->mods());
+        const auto details = modDetails(adds_, store_->mods(), detectSoftwareFamily());
         for (const auto &mod : store_->mods()) {
             result.append({mod.file, mod.name, mod.note, fileSize(store_->librarySize(mod.file)),
-                           builtDate(mod), mod.enabled, mod.loaded, failedToLoad(mod)});
+                           builtDate(mod), versions.value(mod.file), mod.enabled, mod.loaded, failedToLoad(mod), details.value(mod.file)});
+            if (!details.value(mod.file).name.isEmpty()) {
+                result.last().name = details.value(mod.file).name;
+            }
         }
         return result;
     }
@@ -115,7 +135,9 @@ class Controller final : public QObject {
                                 library.fileName() + ".failsafe");
         }
         const QString built = QLocale::c().toString(library.lastModified().date(), "d MMM yyyy");
-        manager_->setManager(QFileInfo(self_).fileName(), built);
+        const auto family = detectSoftwareFamily();
+        const QString software = family == SoftwareFamily::Tolino ? "Tolino" : "Kobo";
+        manager_->setManager(QFileInfo(self_).fileName(), built, software);
     }
     // Closed dialogs can report visible without repainting on 6.0.276679.
     // Create a new dialog for each opening, then rescan before showing it.
@@ -131,6 +153,7 @@ class Controller final : public QObject {
         store_->rescan();
         showManager();
         showRestore();
+        showPolicy();
         manager_->setRows(rows(), store_->pendingChanges());
         manager_->showMaximized();
         manager_->raise();
@@ -143,7 +166,10 @@ class Controller final : public QObject {
         manager_ = new NickelModManager::ui::Manager(density_, font_);
         manager_->setAttribute(Qt::WA_DeleteOnClose);
         manager_->toggled = [this](QString file, bool enabled) { changeModEnabled(file, enabled); };
-        manager_->restoreToggled = [this](bool enabled) { changeRestoreEnabled(enabled); };
+        manager_->forgotten = [this](QString file) { forgetMod(file); };
+        manager_->detailsRequested = [this](QString file) { openModSettings(file); };
+        manager_->setPendingSettings(pendingSettings_.size());
+        manager_->preferencesSaved = [this](QString policy, bool restore) { savePreferences(policy, restore); };
         manager_->restart = [this] { requestRestart(); };
     }
 
@@ -167,16 +193,92 @@ class Controller final : public QObject {
         manager_->setRows(rows(), store_->pendingChanges());
     }
 
-    void changeRestoreEnabled(bool enabled) {
-        QString error;
-        if (!hook_ || !hook_->setEnabled(enabled, store_->keptOn(), error)) {
-            syslog(LOG_ERR, "NickelModManager: restore after updates: %s", qPrintable(error));
-            manager_->showNotice("Change not saved", error.left(512));
+    void openModSettings(const QString &file) {
+        store_->rescan();
+        ModDetails details = modDetails(adds_, store_->mods(), detectSoftwareFamily()).value(file);
+        QString name = modDisplayName(file);
+        if (!details.name.isEmpty()) {
+            name = details.name;
+        }
+        if (details.library.isEmpty()) {
+            details.library = file;
+        }
+        SettingsSnapshot snapshot;
+        QString unavailable;
+        if (details.settings.isEmpty()) {
+            unavailable = "This mod does not expose settings to NickelModManager.";
         } else {
-            syslog(LOG_INFO, "NickelModManager: restore after updates turned %s",
-                   enabled ? "on" : "off");
+            readSettings(details, snapshot, unavailable);
+        }
+        ui::showModSettings(manager_, manager_->context(), name, details, snapshot, unavailable,
+                            [this, file, snapshot](const QHash<QString, bool> &edits, QString &error) {
+            store_->rescan();
+            const auto current = modDetails(adds_, store_->mods(), detectSoftwareFamily()).value(file);
+            if (!saveSettings(snapshot, current, edits, error)) {
+                return false;
+            }
+            for (const auto &setting : current.settings) {
+                if (!setting.restart || !edits.contains(setting.key)) {
+                    continue;
+                }
+                const QString identity = file + "/" + setting.key;
+                if (!settingsAtStart_.contains(identity)) {
+                    settingsAtStart_.insert(identity, snapshot.values.value(setting.key));
+                }
+                const auto original = settingsAtStart_.value(identity);
+                if (original.valid && original.value == edits.value(setting.key)) {
+                    pendingSettings_.remove(identity);
+                } else {
+                    pendingSettings_.insert(identity);
+                }
+            }
+            manager_->setPendingSettings(pendingSettings_.size());
+            return true;
+        });
+    }
+
+    void showPolicy() {
+        const auto support = updatePolicySupport();
+        const QString policy = policy_ == UpdatePolicy::AlwaysAsk ? "ask" : policy_ == UpdatePolicy::NoUpdates ? "none" : "stock";
+        manager_->setUpdatePolicy(policy, support.supported, support.supported ? QString() :
+                                  "Update policies are not available on this software version yet. Updates keep their normal behavior.");
+    }
+
+    void savePreferences(const QString &policy, bool restore) {
+        const UpdatePolicy selected = policy == "ask" ? UpdatePolicy::AlwaysAsk : policy == "none" ? UpdatePolicy::NoUpdates : UpdatePolicy::Stock;
+        QString error;
+        if (selected != policy_) {
+            if (!updatePolicySupport().supported) {
+                error = "Update policies are unavailable on this firmware.";
+            } else if (saveUpdatePolicy(storage_, selected, error)) {
+                policy_ = selected;
+                applyUpdatePolicy(policy_);
+            }
+        }
+        if (error.isEmpty() && hook_ && restore != hook_->enabled()) {
+            hook_->setEnabled(restore, store_->keptOn(), error);
+        }
+        if (!error.isEmpty()) {
+            manager_->showNotice("Preferences not fully saved", error, "The page will show the preferences that were saved.");
         }
         showRestore();
+        showPolicy();
+    }
+
+    // Refresh the enabled-library package first, so a stale package cannot
+    // reinstall a forgotten mod. A failure keeps the saved copy available.
+    void forgetMod(const QString &file) {
+        store_->rescan();
+        QString error;
+        if (hook_ && hook_->enabled() && !hook_->refresh(store_->keptOn(), error)) {
+            manager_->showNotice("Mod not forgotten", error.left(512));
+        } else if (!store_->forget(file, error)) {
+            manager_->showNotice("Mod not forgotten", error.left(512));
+        } else {
+            retrying_.remove(file);
+            syslog(LOG_INFO, "NickelModManager: forgot %s", qPrintable(file));
+        }
+        manager_->setRows(rows(), store_->pendingChanges());
     }
 
     void showRestore() {
@@ -235,6 +337,10 @@ class Controller final : public QObject {
         // Nickel integration reports Home once per process, after More is visible.
         syslog(LOG_INFO, "NickelModManager: Home is up");
         homeReady_();
+        const auto support = initializeUpdatePolicy(policy_);
+        if (!support.supported) {
+            syslog(LOG_INFO, "NickelModManager: update policies unavailable: %s", qPrintable(support.reason));
+        }
         // Not during start-up: the package takes a moment to compress.
         NickelModManager::later(this, 3000, [this] { refreshHook(); });
         // Nickel's own start-up dialogs come first.

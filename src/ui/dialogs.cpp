@@ -40,13 +40,41 @@ class Card final : public QWidget {
   protected:
     void paintEvent(QPaintEvent *) override {
         QPainter painter(this);
-        painter.fillRect(rect(), palette().color(QPalette::WindowText));
+        painter.fillRect(rect(), Qt::black);
         painter.fillRect(rect().adjusted(edge_, edge_, -edge_, -edge_),
                          palette().color(QPalette::Window));
     }
 
   private:
     int edge_;
+};
+// Kobalt-style full-width action rows share the card's border and use grey
+// press feedback. A disabled action remains visible with its explanation.
+class ChoiceAction final : public QPushButton {
+  public:
+    ChoiceAction(const DialogAction &action, const Context &context, QWidget *parent)
+        : QPushButton(action.text, parent), context_(context) {
+        setObjectName(action.name);
+        setEnabled(action.enabled);
+        setFocusPolicy(Qt::NoFocus);
+        setFixedHeight(context.px(128));
+        context.apply(this, 30);
+        enableTouch(this);
+    }
+
+  protected:
+    void paintEvent(QPaintEvent *) override {
+        QPainter painter(this);
+        painter.fillRect(rect(), isDown() ? QColor("#dddddd") : palette().color(QPalette::Window));
+        painter.fillRect(0, 0, width(), qMax(1, context_.px(1)), QColor("#bbbbbb"));
+        painter.setPen(isEnabled() ? palette().color(QPalette::WindowText) : QColor("#777777"));
+        painter.setFont(font());
+        painter.drawText(rect().adjusted(context_.px(36), 0, -context_.px(36), 0),
+                         Qt::AlignLeft | Qt::AlignVCenter, text());
+    }
+
+  private:
+    Context context_;
 };
 // The parts of a dialog that callers fill in.
 struct Sheet {
@@ -72,23 +100,29 @@ Sheet buildSheet(QWidget *parent, const Context &context, const QString &title,
     dialog->setPalette(context.palette);
     dialog->setGeometry(area);
     auto *outer = new QVBoxLayout(dialog);
-    outer->setContentsMargins(context.px(48), context.px(48), context.px(48), context.px(48));
+    outer->setContentsMargins(context.px(32), context.px(32), context.px(32), context.px(32));
     auto *card = new Card(context, dialog);
     card->setPalette(context.palette);
-    card->setFixedWidth(qMin(context.px(880), qMax(1, area.width() - 2 * context.px(48))));
+    card->setFixedWidth(qMin(context.px(760), qMax(1, area.width() - 2 * context.px(32))));
     outer->addStretch();
     outer->addWidget(card, 0, Qt::AlignHCenter);
     outer->addStretch();
     auto *rows = new QVBoxLayout(card);
-    const int margin = context.px(40);
-    rows->setContentsMargins(margin, margin, margin, margin);
-    rows->setSpacing(context.px(20));
+    const int border = qMax(2, context.px(2));
+    rows->setContentsMargins(border, border, border, border);
+    rows->setSpacing(0);
+    auto *heading = new QWidget(card);
+    auto *headingRows = new QVBoxLayout(heading);
+    const int margin = context.px(36);
+    headingRows->setContentsMargins(margin, context.px(28), margin, context.px(28));
+    headingRows->setSpacing(context.px(12));
+    rows->addWidget(heading);
     // A top-level dialog does not ask its layout for height-for-width, so
     // each wrapped label gets the height its text needs at the card's width.
-    const int textWidth = card->width() - 2 * margin;
+    const int textWidth = card->width() - 2 * margin - 2 * border;
     const auto label = [&](const QString &value, const QString &name, int pixels,
                            const char *extra) {
-        auto *result = new QLabel(value, card);
+        auto *result = new QLabel(value, heading);
         result->setObjectName(name);
         result->setTextFormat(Qt::PlainText);
         result->setWordWrap(true);
@@ -96,14 +130,14 @@ Sheet buildSheet(QWidget *parent, const Context &context, const QString &title,
         result->setStyleSheet(result->styleSheet() + extra);
         result->ensurePolished();
         result->setFixedHeight(qMax(1, result->heightForWidth(textWidth)));
-        rows->addWidget(result);
+        headingRows->addWidget(result);
     };
-    label(title, "nmmDialogTitle", 42, "font-weight:600;background:transparent;");
+    label(title, "nmmDialogTitle", 30, "font-weight:600;background:transparent;");
     if (!message.isEmpty()) {
-        label(message, "nmmDialogMessage", 32, "background:transparent;");
+        label(message, "nmmDialogMessage", 25, "background:transparent;");
     }
     if (!detail.isEmpty()) {
-        label(detail, "nmmDialogDetail", 28, "background:transparent;");
+        label(detail, "nmmDialogDetail", 25, "background:transparent;");
     }
     return {dialog, card, rows};
 }
@@ -113,13 +147,9 @@ int choose(QWidget *parent, const Context &context, const QString &title, const 
            const QString &detail, const QVector<DialogAction> &actions) {
     const Sheet sheet = buildSheet(parent, context, title, message, detail);
     std::unique_ptr<Modal> dialog(sheet.dialog);
-    sheet.rows->addSpacing(context.px(8));
     int chosen = -1;
     for (int index = 0; index < actions.size(); ++index) {
-        auto *button = new ActionButton(actions[index].text, context, sheet.card);
-        button->setObjectName(actions[index].name);
-        button->setKind(index == 0 ? ButtonKind::Primary : ButtonKind::Outlined);
-        button->setMinimumHeight(context.px(88));
+        auto *button = new ChoiceAction(actions[index], context, sheet.card);
         Modal *shown = dialog.get();
         QObject::connect(button, &QPushButton::clicked, shown, [shown, &chosen, index] {
             chosen = index;

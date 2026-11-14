@@ -396,6 +396,51 @@ bool ModStore::setEnabled(const QString &filename, bool enabled, QString &error)
     return saveState(error);
 }
 
+bool ModStore::forget(const QString &filename, QString &error) {
+    const Mod *mod = find(filename);
+    if (!mod) {
+        error = filename + " is not a known mod.";
+        return false;
+    }
+    if (mod->enabled || mod->loaded || mod->parked) {
+        error = "Turn the mod off and restart before forgetting it.";
+        return false;
+    }
+    // Check both failsafe locations, including unexpected non-regular entries.
+    // A library installed since the last scan must not lose its recovery copy.
+    for (const QString &path : {plugins_ + "/" + filename,
+                                plugins_ + "/" + filename + ".failsafe",
+                                QFileInfo(plugins_).absolutePath() + "/" + filename + ".failsafe"}) {
+        struct stat entry;
+        if (!lstat(nativePath(path).constData(), &entry) || errno != ENOENT) {
+            error = "The mod still has an installed or failsafe file. Turn it off first.";
+            return false;
+        }
+    }
+    const QString saved = savedLibraryPath(filename);
+    struct stat entry;
+    if (!lstat(nativePath(saved).constData(), &entry)) {
+        if (!S_ISREG(entry.st_mode) || unlink(nativePath(saved).constData())) {
+            error = saved + ": could not remove the saved library.";
+            return false;
+        }
+        syncDirectory(QFileInfo(saved).absolutePath());
+    } else if (errno != ENOENT) {
+        error = saved + ": " + systemError();
+        return false;
+    }
+    const QVector<Mod> previous = mods_;
+    mods_.erase(std::remove_if(mods_.begin(), mods_.end(), [&](const Mod &item) {
+                    return item.file == filename;
+                }), mods_.end());
+    if (!saveState(error)) {
+        mods_ = previous;
+        error += " The saved library was removed; try forgetting the mod again.";
+        return false;
+    }
+    return true;
+}
+
 // Prefer the failsafe's actual bytes over an older saved copy. Copy them to
 // storage before moving the held file back. A regular installed file needs
 // no restoration. Completed copies remain if the later rename fails.

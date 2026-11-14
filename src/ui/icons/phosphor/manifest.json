@@ -1,0 +1,58 @@
+{
+  "project": "Phosphor Icons",
+  "repository": "https://github.com/phosphor-icons/core",
+  "revision": "2b75f3ad12b420c9504ef05df8d2564a28f8500e",
+  "version": "2.1.1",
+  "weight": "regular",
+  "license": "MIT",
+  "files": [
+    {
+      "file": "arrow-left.svg",
+      "sha256": "3c2001cf957d182fc54927e4b286cc8cf66dd97830f441ca2650d42a63a9006a"
+    },
+    {
+      "file": "arrow-u-up-left.svg",
+      "sha256": "37975867f2e89f745250d3601a5674ca37883a8d79f52abcb082beba4df28df7"
+    },
+    {
+      "file": "caret-left.svg",
+      "sha256": "623bf248fe21a8170344e168aaac2e174119cea5d7c5d0fb0dc84f581009475f"
+    },
+    {
+      "file": "caret-right.svg",
+      "sha256": "e6dec01e074807965b7f3146b976a9b5e82c31d9c2c88aeb52e77cc2ab16c1d7"
+    },
+    {
+      "file": "download-simple.svg",
+      "sha256": "c48678aa09b44ba4974954690ee6cc846379c448a7214f8c802604c2a1562014"
+    },
+    {
+      "file": "gear-fine.svg",
+      "sha256": "ca000a36662d0049d39ea5cbe44a0133960d791dd95dd1929692211355fac4e0"
+    },
+    {
+      "file": "info.svg",
+      "sha256": "438a1f319d53d86e840af73fb7b1d224c9224a437b9fa449a4e2cb45a82a3552"
+    },
+    {
+      "file": "lock.svg",
+      "sha256": "7f9e0acc09a417a48328cd5b74e95de98989c5af1710ca5da705179da75c72d9"
+    },
+    {
+      "file": "question.svg",
+      "sha256": "fd9a87cfce2abaa9113058be90e5281da58f665e2185974b80c7425d5c7fe2d6"
+    },
+    {
+      "file": "squares-four.svg",
+      "sha256": "f70d6b20e08e028ab5b1714077681910a2431092cf7a23b82366ddaec554ab87"
+    },
+    {
+      "file": "warning.svg",
+      "sha256": "047c8edbdfddb9f1692bbf56acc85b7e4649b567c60eb39470e98e4f9ddc6a2e"
+    },
+    {
+      "file": "x.svg",
+      "sha256": "7397b15e1fa66eaf6ff9b59fe91d483cb5c3bcf75b2fe052097ab6f0593b513a"
+    }
+  ]
+}

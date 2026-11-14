@@ -8,9 +8,11 @@ version=$4
 output=build/qt$qt
 runtime=/usr/arm-linux-gnueabihf
 case "$qt" in
-    5) libraries=$runtime/lib:/tc/qt5/sysroot/usr/lib
+    5) export QT_PLUGIN_PATH=/tc/qt5/sysroot/usr/plugins
+       libraries=$runtime/lib:/tc/qt5/sysroot/usr/lib
        name=KoboRoot.tgz; prefix=usr/local/Kobo/imageformats ;;
-    6) libraries=/tc/arm-kobo-linux-gnueabihf/qt6/lib:/usr/lib/arm-linux-gnueabihf:$runtime/lib
+    6) export QT_PLUGIN_PATH=/tc/arm-kobo-linux-gnueabihf/qt6/plugins
+       libraries=/tc/arm-kobo-linux-gnueabihf/qt6/lib:/usr/lib/arm-linux-gnueabihf:$runtime/lib
        name=Kobo.tgz; prefix=imageformats ;;
     *) echo 'Expected Qt 5 or 6' >&2; exit 2 ;;
 esac

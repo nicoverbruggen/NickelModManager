@@ -6,9 +6,8 @@
 class QLabel;
 namespace NickelModManager {
 namespace ui {
-// On Qt 5, makes a button take touch events itself and click when the
-// finger lifts inside it; Nickel 4.x delivers taps only as touch. Does
-// nothing on Qt 6.
+// Makes a button take touch events itself and click when the finger lifts
+// inside it. A parent row must not consume a switch's touch on Qt6 either.
 void enableTouch(QAbstractButton *button);
 
 class Toggle final : public QCheckBox {
@@ -22,9 +21,19 @@ class Toggle final : public QCheckBox {
   private:
     Context context_;
 };
-// Every button inverts while pressed: ink fill and paper text. A filled
-// button lightens to dark grey instead, so it still reads as the same button.
+// Text buttons invert while pressed. Buttons containing labels use grey
+// feedback so their own label colors stay readable. Filled buttons lighten.
 enum class ButtonKind { Outlined, Quiet, Primary };
+// A touch-sized outlined circular icon button.
+class CircleButton final : public QPushButton {
+  public:
+    CircleButton(const QString &name, Icon glyph, const Context &context, QWidget *parent);
+  protected:
+    void paintEvent(QPaintEvent *) override;
+  private:
+    Icon glyph_;
+    Context context_;
+};
 class ActionButton : public QPushButton {
   public:
     ActionButton(const QString &caption, QWidget *parent = nullptr);
@@ -76,7 +85,7 @@ class Divider final : public QWidget {
   protected:
     void paintEvent(QPaintEvent *) override;
 };
-// A header with a Back arrow at the start and a serif title centered across
+// A header with a Back arrow at the start and an interface-font title centered across
 // the full width, shortened with an ellipsis when it does not fit.
 class Header final : public QWidget {
   public:

@@ -2,6 +2,8 @@
 
 NickelModManager adds the **Manage Mods** item to Nickel's **More** tab. It lists installed mods and lets you turn them off and on. Changes apply after a restart. It keeps a copy of each mod on user storage, so a mod you turn off can be turned on again later.
 
+Tap a mod or its circular settings button to edit the settings it declares in a [mod manifest](docs/mod-manifest.md). The restart button shows when saved settings or mod changes need a restart. Hold a disabled mod’s row to permanently remove its saved copy while keeping its settings.
+
 On firmware 5.18 and 6.0, it can also automatically reinstall itself and enabled mods after supported firmware updates.
 
 The mod supports Kobo firmware 4.x from 4.23, 5.18 and 6.0, and Tolino Vision Color software 5.18.264769.
@@ -28,13 +30,21 @@ Copy the package to `.kobo/` on the eReader, safely eject it and disconnect USB.
 
 Tap **More** > **Manage Mods** to change which mods load at the next start. Mods are listed as enabled or disabled. A mod that failed to load has its own section, and turning it on again asks for confirmation first. NickelModManager itself cannot be turned off from this screen; its card at the top shows its version and details.
 
+To permanently remove a disabled mod from Manage Mods, press and hold its row, then confirm **Permanently remove**. This deletes the manager's saved copy and removes the row. The mod's own settings stay. If you just turned the mod off, restart first. To use the mod again, reinstall it.
+
+Mods can optionally supply a `mod.manifest` file to show their version. Mods without one keep working as before.
+
+Mod authors can read the [manifest format](docs/mod-manifest.md), including settings declarations, restart requirements and OS conditions.
+
 Ordinary NickelHook-based mods need no changes to work with the manager. Each mod remains responsible for its own compatibility checks and hooks.
 
 ## Firmware updates
 
+On supported firmware, the manager’s Settings page offers Stock, Always ask and No updates. A manual update check allows one prompt under No updates. The policy applies during normal use; manual packages, system restores and recovery stay unchanged. See [supported versions and validation](DEVELOPER.md#update-policies).
+
 On firmware 5.18 and 6.0, **Restore after firmware updates** is on by default. NickelModManager keeps a reinstall package on user storage and queues it as the device reboots into recovery for a full update. Kobo's updater installs that package before Nickel starts on the new firmware. The manager and enabled mod libraries are reinstalled; disabled mods stay off. Reinstalling a mod does not guarantee it will work with the new firmware.
 
-Open the manager's About page to check this setting. Safety checks skip restoration if the update mechanism is not supported or the reinstall package fails its integrity checks. Restoration has a 30-second deadline so a stalled command does not keep the shutdown hook waiting. Restoration has been verified on a Clara Colour reinstalling 6.0.276679. Future update procedures may need support in a newer manager version. Firmware 4.x updates already keep installed mods.
+Open the manager's Settings page to change this setting. Safety checks skip restoration if the update mechanism is not supported or the reinstall package fails its integrity checks. Restoration has a 30-second deadline so a stalled command does not keep the shutdown hook waiting. Restoration has been verified on a Clara Colour reinstalling 6.0.276679. Future update procedures may need support in a newer manager version. Firmware 4.x updates already keep installed mods.
 
 ## Remove
 

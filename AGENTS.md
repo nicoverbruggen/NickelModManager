@@ -22,11 +22,13 @@ Use upstream [NickelHook](https://github.com/pgaskin/NickelHook) and [NickelMenu
 - Update comments when behavior changes. Keep return values, lifetime rules and descriptions of state consistent with the implementation.
 - Avoid JSON files where a simpler format meets the need. Prefer plain text or INI for settings and saved state. Check build metadata requirements before replacing their format. Preserve state validation, atomic writes and damaged-file recovery when changing persistence.
 
+Keep the manifest contract in `docs/mod-manifest.md`. Update it alongside changes to manifest parsing or conditions. Clearly distinguish implemented behavior from draft settings features.
+
 ## Builds and checks
 
 Use the public kobuild SDK images through `tools/build.sh` for public Kobo builds. Keep the shared source compatible with C++14, Qt 5.2.1 for firmware 4.x and Qt 6.5 for firmware 5.x/6.x. Put reusable Qt API compatibility helpers in `src/compat.h`.
 
-Run checks appropriate to the change. `sh tools/build.sh --test` builds and runs the store, persistence, hook, hook-script, lifecycle and icon tests for both Qt targets. These QEMU tests do not establish firmware runtime compatibility or physical-device behavior; the Qt5 test runtime uses a newer glibc than firmware 4.x.
+Run checks appropriate to the change. `sh tools/build.sh --test` builds and runs the store, metadata, settings, software-family, persistence, hook, hook-script, lifecycle, update-policy and icon tests for both Qt targets. These QEMU tests do not establish firmware runtime compatibility or physical-device behavior; the Qt5 test runtime uses a newer glibc than firmware 4.x.
 
 Use Libra Colour 4.42.23033 and Libra 2 4.38.23697 as the Qt5 compatibility baselines. Keep entry-point, uninstall, startup failsafe and mod-management behavior working on both. Prefer Qt APIs over private Nickel symbols so new firmware checks do not require a symbol port first. Hardware checks remain necessary for touch, e-ink and interaction with installed mods.
 
