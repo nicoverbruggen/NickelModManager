@@ -232,7 +232,46 @@ void persistence() {
 }
 } // namespace
 
+#ifdef NMM_UPDATE_HOOKS
+void checkUpdatePathInstructions() {
+    // The Qt6 native prompt is the fallthrough of a forward BNE.
+    CHECK(forwardCondition(0xd12f, 0xd100));
+    CHECK(!forwardCondition(0xd02f, 0xd100)); // Reversed selector.
+    CHECK(!forwardCondition(0xd42f, 0xd100)); // Different condition.
+    CHECK(!forwardCondition(0xd1ff, 0xd100)); // Backwards branch.
+    CHECK(forwardCondition(0xd063, 0xd000)); // isSilent false selects the prompt.
+    CHECK(!forwardCondition(0xd163, 0xd000));
+    CHECK(isReturningBranch(0xf880)); // BL
+    CHECK(isReturningBranch(0xe800)); // BLX
+    CHECK(!isReturningBranch(0xb880)); // B.W
+    const uint16_t selector[] = {0xf1b8, 0x0f01, 0xd12f};
+    const uint16_t changedType[] = {0xf1b8, 0x0f02, 0xd12f};
+    CHECK(matchesThumb({selector, 3}, selector, 3));
+    CHECK(!matchesThumb({changedType, 3}, selector, 3));
+    CHECK(!matchesThumb({selector, 2}, selector, 3));
+
+    // Either optional hook alone must trigger the complete workflow check.
+    CHECK(!hasMajorWorkflow());
+    realWorkflowNotes = [](void *, const QString &, const QString &, const QString &) {};
+    CHECK(hasMajorWorkflow());
+    realWorkflowNotes = nullptr;
+    realAcceptWorkflow = [](void *) {};
+    CHECK(hasMajorWorkflow());
+    realAcceptWorkflow = nullptr;
+
+    alignas(4) const uint16_t call[] = {0xf000, 0xe800};
+    const uint16_t invalidCall[] = {0xf000, 0xe801};
+    const uint16_t conditionalBranch[] = {0xf000, 0x8000};
+    CHECK(thumbBranchTarget(call) == reinterpret_cast<uintptr_t>(call) + 4);
+    CHECK(!thumbBranchTarget(invalidCall));
+    CHECK(!thumbBranchTarget(conditionalBranch));
+}
+#endif
+
 int main(int argc, char **argv) {
+#ifdef NMM_UPDATE_HOOKS
+    checkUpdatePathInstructions();
+#endif
     QApplication app(argc, argv);
     persistence();
     CHECK(!updatePolicySupport().supported);

@@ -19,7 +19,7 @@ UpdatePolicy loadUpdatePolicy(const QString &storage, QString &error);
 bool saveUpdatePolicy(const QString &storage, UpdatePolicy policy, QString &error);
 
 // initializeUpdatePolicy installs process-local hooks once, on Nickel's GUI
-// thread. Call after Home appears. Unknown firmware and non-Nickel processes
+// thread. Call after Home appears. Unrecognized update interfaces and non-Nickel processes
 // remain stock and return supported=false with a reason. The hooks and their
 // original functions must remain loaded for the lifetime of the process.
 // Every hook bypasses enforcement during setup and after reset begins.

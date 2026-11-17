@@ -241,7 +241,7 @@ class Controller final : public QObject {
         const auto support = updatePolicySupport();
         const QString policy = policy_ == UpdatePolicy::AlwaysAsk ? "ask" : policy_ == UpdatePolicy::NoUpdates ? "none" : "stock";
         manager_->setUpdatePolicy(policy, support.supported, support.supported ? QString() :
-                                  "Update policies are not available on this software version yet. Updates keep their normal behavior.");
+                                  "Update policies are unavailable because Nickel's update interface could not be verified. Updates keep their normal behavior.");
     }
 
     void savePreferences(const QString &policy, bool restore) {

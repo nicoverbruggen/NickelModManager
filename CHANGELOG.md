@@ -11,7 +11,7 @@
 - Show compact mod metadata with circular settings and info buttons. Open manifest settings from a row or button.
 - Edit declared boolean settings with Kobo/Tolino conditions, conflict detection and preserved config content. Count saved settings that require a restart in the restart footer.
 - Add Settings and About tabs for Mod Manager, with icons for update policies and mod restoration.
-- Add Stock, Always ask and No updates policies on verified Qt5 firmware and Qt6 firmware 6.0.276679. Leave setup and reset update behavior unchanged.
+- Add Stock, Always ask and No updates policies. Check Nickel’s update interfaces on startup and keep Stock behavior if they do not match.
 - Show Kobo or Tolino software on the manager's About page, defaulting to Kobo when detection is unavailable.
 - Document the manifest format and OS-specific settings declarations.
 - Press and hold a mod row to permanently remove a disabled mod's saved copy while keeping its settings, with one confirmation.

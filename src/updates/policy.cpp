@@ -490,7 +490,7 @@ Q_DECL_UNUSED void workflowAccepted(void *self) {
 #ifdef NMM_UPDATE_HOOKS
 // Hooks change only libnickel's in-memory PLT slots. Resolve and validate the
 // complete group before writing any slot. No firmware file or boot script is
-// changed. This is restricted to verified ARM32 firmware interfaces.
+// changed. This is restricted to matching ARM32 firmware interfaces.
 struct Mapping {
     uintptr_t base;
     uintptr_t address;
@@ -542,7 +542,7 @@ struct Hook {
 
 // readSlot verifies every table access against libnickel's mapped segments.
 // A symbol with no PLT relocation cannot be intercepted by this mechanism.
-bool readSlot(void *library, link_map *map, Hook &hook) {
+void **findSlot(link_map *map, const char *name) {
     Elf32_Rel *relocations = nullptr;
     Elf32_Sym *symbols = nullptr;
     const char *strings = nullptr;
@@ -567,54 +567,63 @@ bool readSlot(void *library, link_map *map, Hook &hook) {
     if (!rel || entryBytes != sizeof(Elf32_Rel) || !bytes || bytes % entryBytes ||
         !symbols || !mapped(map->l_addr, relocations, bytes, PF_R) ||
         !strings || !stringBytes || !mapped(map->l_addr, strings, stringBytes, PF_R)) {
-        return false;
+        return nullptr;
     }
     for (size_t i = 0; i < bytes / entryBytes; ++i) {
         const auto &relocation = relocations[i];
         const size_t index = ELF32_R_SYM(relocation.r_info);
         if (index > (UINTPTR_MAX - reinterpret_cast<uintptr_t>(symbols)) / sizeof(*symbols)) {
-            return false;
+            return nullptr;
         }
         const auto *symbol = reinterpret_cast<const Elf32_Sym *>(
             reinterpret_cast<uintptr_t>(symbols) + index * sizeof(*symbols));
         if (!mapped(map->l_addr, symbol, sizeof(*symbol), PF_R) || symbol->st_name >= stringBytes ||
             !std::memchr(strings + symbol->st_name, 0, stringBytes - symbol->st_name)) {
-            return false;
+            return nullptr;
         }
-        if (std::strcmp(strings + symbol->st_name, hook.symbol)) {
+        if (std::strcmp(strings + symbol->st_name, name)) {
             continue;
         }
         if (ELF32_R_TYPE(relocation.r_info) != R_ARM_JUMP_SLOT ||
             ELF32_ST_TYPE(symbol->st_info) != STT_FUNC ||
             ELF32_ST_BIND(symbol->st_info) != STB_GLOBAL ||
             relocation.r_offset > UINTPTR_MAX - map->l_addr) {
-            return false;
+            return nullptr;
         }
         auto **slot = reinterpret_cast<void **>(map->l_addr + relocation.r_offset);
         if (reinterpret_cast<uintptr_t>(slot) % sizeof(void *) ||
             !mapped(map->l_addr, slot, sizeof(*slot), PF_R | PF_W)) {
-            return false;
+            return nullptr;
         }
-        void *original = dlsym(library, hook.symbol);
-        Dl_info previous;
-        if (*slot != original && dladdr(*slot, &previous)) {
-            original = previous.dli_fbase == reinterpret_cast<void *>(map->l_addr)
-                ? dlsym(RTLD_DEFAULT, hook.symbol) : *slot;
-        }
-        if (original == hook.replacement || !executable(original) || !executable(hook.replacement)) {
-            return false;
-        }
-        hook.original = original;
-        hook.slot = slot;
-        return true;
+        return slot;
     }
-    return false;
+    return nullptr;
+}
+
+bool readSlot(void *library, link_map *map, Hook &hook) {
+    auto **slot = findSlot(map, hook.symbol);
+    if (!slot) {
+        return false;
+    }
+    void *original = dlsym(library, hook.symbol);
+    Dl_info previous;
+    if (*slot != original && dladdr(*slot, &previous)) {
+        original = previous.dli_fbase == reinterpret_cast<void *>(map->l_addr)
+            ? dlsym(RTLD_DEFAULT, hook.symbol) : *slot;
+    }
+    if (original == hook.replacement || !executable(original) || !executable(hook.replacement)) {
+        return false;
+    }
+    hook.original = original;
+    hook.slot = slot;
+    return true;
 }
 
 template <typename Function>
 bool lookup(void *library, const char *symbol, Function &function) {
-    function = reinterpret_cast<Function>(dlsym(library, symbol));
-    return function != nullptr;
+    void *address = dlsym(library, symbol);
+    function = reinterpret_cast<Function>(address);
+    return executable(address);
 }
 
 template <typename Function>
@@ -633,6 +642,246 @@ bool prepareHook(void *library, link_map *map, QVector<Hook> &hooks, const char 
     return true;
 }
 
+// Read only the exported Thumb function's mapped symbol range. The calls we
+// need go through the ARM PLT, sometimes with a Thumb veneer in front of it.
+struct ThumbFunction {
+    const uint16_t *code = nullptr;
+    size_t count = 0;
+};
+
+ThumbFunction thumbFunction(uintptr_t base, void *function) {
+    const uintptr_t address = reinterpret_cast<uintptr_t>(function);
+    Dl_info info;
+    void *entry = nullptr;
+    if (!(address & 1) || !dladdr1(function, &info, &entry, RTLD_DL_SYMENT) || !entry ||
+        reinterpret_cast<uintptr_t>(info.dli_fbase) != base ||
+        (reinterpret_cast<uintptr_t>(info.dli_saddr) & ~uintptr_t(1)) != address - 1) {
+        return {};
+    }
+    const size_t size = static_cast<const Elf32_Sym *>(entry)->st_size;
+    auto *code = reinterpret_cast<const uint16_t *>(address - 1);
+    if (!size || size > 16384 || (size & 1) || !mapped(base, code, size, PF_R | PF_X)) {
+        return {};
+    }
+    return {code, size / 2};
+}
+
+uint32_t armImmediate(uint32_t instruction) {
+    const uint32_t value = instruction & 0xff;
+    const unsigned rotate = ((instruction >> 8) & 15) * 2;
+    return rotate ? (value >> rotate) | (value << (32 - rotate)) : value;
+}
+
+void **pltSlot(uintptr_t base, uintptr_t target) {
+    if (target & 3 || !mapped(base, reinterpret_cast<void *>(target), 12, PF_R | PF_X)) {
+        return nullptr;
+    }
+    auto *arm = reinterpret_cast<const uint32_t *>(target);
+    if ((arm[0] & 0xffff) == 0x4778) { // bx pc followed by linker padding
+        target += 4;
+        if (!mapped(base, reinterpret_cast<void *>(target), 12, PF_R | PF_X)) {
+            return nullptr;
+        }
+        ++arm;
+    }
+    if ((arm[0] & 0xfffff000) != 0xe28fc000 ||
+        (arm[1] & 0xfffff000) != 0xe28cc000 ||
+        (arm[2] & 0xfffff000) != 0xe5bcf000) {
+        return nullptr;
+    }
+    return reinterpret_cast<void **>(target + 8 + armImmediate(arm[0]) +
+                                    armImmediate(arm[1]) + (arm[2] & 0xfff));
+}
+
+uintptr_t thumbBranchTarget(const uint16_t *instruction) {
+    const uint16_t first = instruction[0], second = instruction[1];
+    const unsigned form = second & 0xd000;
+    if ((first & 0xf800) != 0xf000 ||
+        (form != 0x9000 && form != 0xc000 && form != 0xd000) ||
+        (form == 0xc000 && (second & 1))) {
+        return 0;
+    }
+    const uint32_t sign = (first >> 10) & 1;
+    const uint32_t i1 = 1 ^ (((second >> 13) & 1) ^ sign);
+    const uint32_t i2 = 1 ^ (((second >> 11) & 1) ^ sign);
+    const uint32_t encoded = (sign << 24) | (i1 << 23) | (i2 << 22) |
+                             ((first & 0x3ff) << 12) | ((second & 0x7ff) << 1);
+    const int32_t offset = int32_t(encoded) - (sign ? (1 << 25) : 0);
+    const uintptr_t pc = reinterpret_cast<uintptr_t>(instruction) + 4;
+    return (form == 0xc000 ? pc & ~uintptr_t(3) : pc) + offset;
+}
+
+bool isReturningBranch(uint16_t secondHalfword) {
+    return (secondHalfword & 0xc000) == 0xc000; // BL and BLX, never B.W.
+}
+
+bool callsReturningSlot(uintptr_t base, const uint16_t *instruction, void **slot) {
+    return slot && isReturningBranch(instruction[1]) &&
+        pltSlot(base, thumbBranchTarget(instruction)) == slot;
+}
+
+bool callsSlot(uintptr_t base, ThumbFunction from, void **slot) {
+    if (!slot) {
+        return false;
+    }
+    for (size_t i = 0; i + 1 < from.count;) {
+        const bool wide = from.code[i] >= 0xe800;
+        if (wide && pltSlot(base, thumbBranchTarget(from.code + i)) == slot) {
+            return true;
+        }
+        i += wide ? 2 : 1;
+    }
+    return false;
+}
+
+bool matchesThumb(ThumbFunction function, const uint16_t *shape, size_t count) {
+    if (function.count < count) {
+        return false;
+    }
+    for (size_t i = 0; i < count; ++i) {
+        if (shape[i] && function.code[i] != shape[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+Q_DECL_UNUSED bool forwardCondition(uint16_t branch, uint16_t condition) {
+    return (branch & 0xff80) == condition;
+}
+
+bool hasOptionalSelector(link_map *map, ThumbFunction manager) {
+    const auto base = map->l_addr;
+    auto **silentSlot = findSlot(map, "_ZN14UpgradeManager8isSilentEv");
+    auto **acceptSlot = findSlot(map, "_ZN15UpgradeDelegate27upgradeConfirmationAcceptedEv");
+    auto **dialogSlot = findSlot(map, "_ZN25ConfirmationDialogFactory21getConfirmationDialogEP7QWidget");
+    if (!silentSlot || !acceptSlot || !dialogSlot) {
+        return false;
+    }
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    // The accessor returns the offer type in r0, which is copied to r8 across
+    // URL processing. Type 1 falls through to the native silent check. The
+    // other types branch to the delegate's automatic acceptance.
+    static const uint16_t shape[] = {0, 0, 0x4631, 0x4680, 0x4620, 0, 0, 0xf04f, 0x62fe,
+        0x4621, 0x4648, 0, 0, 0x4620, 0, 0, 0xf1b8, 0x0f01};
+    auto **typeSlot = findSlot(map, "_ZNK18UpgradeCheckResult14getUpgradeTypeEv");
+    if (!typeSlot) {
+        return false;
+    }
+    static const uint16_t prompt[] = {0x9b1d, 0xb16b, 0xf3bf, 0x8f5b, 0xe853, 0x2f00,
+        0x1e51, 0xe843, 0x1000, 0x2800, 0xd1f8, 0x2a01, 0xf3bf, 0x8f5b, 0xf000, 0x822c, 0x2000, 0, 0};
+    constexpr size_t branch = sizeof(shape) / sizeof(*shape);
+    constexpr size_t factory = sizeof(prompt) / sizeof(*prompt) - 2;
+    for (size_t i = 0; i + branch + 1 < qMin<size_t>(manager.count, 64);) {
+        const auto *code = manager.code + i;
+        if (matchesThumb({code, manager.count - i}, shape, branch) &&
+            callsReturningSlot(base, code, typeSlot) && forwardCondition(code[branch], 0xd100)) {
+            const size_t automatic = branch + 2 + (code[branch] & 0x7f);
+            if (i + automatic + 2 >= manager.count || code[automatic] != 0x4628 ||
+                !callsReturningSlot(base, code + automatic + 1, acceptSlot)) {
+                return false;
+            }
+            // A false silent result must select the dialog. The short
+            // cleanup block releases a temporary string before creating it.
+            for (size_t j = branch + 1; j + 3 < automatic;) {
+                if (callsReturningSlot(base, code + j, silentSlot) && code[j + 2] == 0x2800 &&
+                    forwardCondition(code[j + 3], 0xd000)) {
+                    const size_t target = j + 5 + (code[j + 3] & 0x7f);
+                    if (i + target < manager.count &&
+                        matchesThumb({code + target, manager.count - i - target}, prompt, factory + 2) &&
+                        callsReturningSlot(base, code + target + factory, dialogSlot)) {
+                        return true;
+                    }
+                }
+                j += code[j] >= 0xe800 ? 2 : 1;
+            }
+            return false;
+        }
+        i += *code >= 0xe800 ? 2 : 1;
+    }
+    return false;
+#else
+    // Qt5 saves the enum argument in r4. Its equality branch enters the
+    // silent check, whereas the fallthrough calls automatic acceptance.
+    static const uint16_t shape[] = {0xe92d, 0x4ff0, 0xb099, 0x460c, 0x4681,
+        0xaf06, 0, 0x4611, 0, 0, 0, 0x2c01, 0x447d, 0xd006, 0x4648, 0, 0,
+        0x374c, 0x46bd, 0xe8bd, 0x8ff0, 0, 0, 0x4682, 0x2800, 0xd1f3, 0, 0};
+    return matchesThumb(manager, shape, sizeof(shape) / sizeof(*shape)) &&
+        (manager.code[6] == 0x3008 || manager.code[6] == 0x300c) &&
+        callsReturningSlot(base, manager.code + 15, acceptSlot) &&
+        callsReturningSlot(base, manager.code + 21, silentSlot) &&
+        callsReturningSlot(base, manager.code + 26, dialogSlot);
+#endif
+}
+
+Q_DECL_UNUSED bool legacyResultLayout(link_map *map) {
+    const auto base = map->l_addr;
+    const auto ctor = thumbFunction(base, reinterpret_cast<void *>(resultCtor));
+    const auto dtor = thumbFunction(base, reinterpret_cast<void *>(resultDtor));
+    // The native default result consists of the selector, two URLs and a
+    // string. Check both sides of its lifetime before using our own storage.
+    static const uint16_t construct[] = {
+        0xb5f8, 0x1d06, 0x4d0b, 0x4604, 0xaf00, 0x4630, 0, 0,
+        0xf104, 0x0008, 0x447d, 0, 0, 0x4b07, 0x2200, 0x4620,
+        0x58eb, 0x6022, 0x60e3, 0xbdf8
+    };
+    static const uint16_t destroy[] = {
+        0xb598, 0x4604, 0x68c0, 0xaf00, 0x6803, 0xb963, 0x2204, 0x2102, 0, 0,
+        0xf104, 0x0008, 0, 0, 0x1d20, 0, 0, 0x4620, 0xbd98, 0x3301, 0xd0f4,
+        0xe850, 0x3f00, 0xf1a3, 0x0301, 0xe840, 0x3200, 0xf092, 0x0f00, 0xd1f6,
+        0x2b00, 0xd1e9, 0x68e0, 0xe7e3
+    };
+    const auto calls = [=](ThumbFunction function, size_t index, const char *symbol) {
+        auto **slot = findSlot(map, symbol);
+        return callsReturningSlot(base, function.code + index, slot);
+    };
+    return matchesThumb(ctor, construct, sizeof(construct) / sizeof(*construct)) &&
+        matchesThumb(dtor, destroy, sizeof(destroy) / sizeof(*destroy)) &&
+        calls(ctor, 6, "_ZN4QUrlC1Ev") && calls(ctor, 11, "_ZN4QUrlC1Ev") &&
+        calls(dtor, 8, "_ZN10QArrayData10deallocateEPS_jj") &&
+        calls(dtor, 12, "_ZN4QUrlD1Ev") && calls(dtor, 15, "_ZN4QUrlD1Ev");
+}
+
+bool validateUpdatePath(void *library, link_map *map, QString &error) {
+    const auto base = map->l_addr;
+    const auto code = [=](const char *symbol) { return thumbFunction(base, dlsym(library, symbol)); };
+    const auto calls = [&](const char *from, const char *to) {
+        if (callsSlot(base, code(from), findSlot(map, to))) {
+            return true;
+        }
+        error = QString("Nickel's update call from %1 to %2 did not match.").arg(from, to);
+        return false;
+    };
+    constexpr auto download = "_ZN14UpgradeCommand9doUpgradeEv";
+    constexpr auto notes = "_ZN14UpgradeCommand17onGotReleaseNotesERK7QString";
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    constexpr auto request = "_ZN14UpgradeCommand26requestUpgradeConfirmationERK18UpgradeCheckResultRK7QString";
+    constexpr auto manager = "_ZN14UpgradeManager28onRequestUpgradeConfirmationERK18UpgradeCheckResultRK7QString";
+    if (!calls("_ZN14UpgradeCommand6cancelEv", "_ZN17QueuedSyncCommand6cancelEv") ||
+        !calls("_ZN14UpgradeCommand6isIdleEv", "_ZN17QueuedSyncCommand6isIdleEv")) {
+        return false;
+    }
+#else
+    constexpr auto request = "_ZN14UpgradeCommand26requestUpgradeConfirmationE11UpgradeTypeRK7QString";
+    constexpr auto manager = "_ZN14UpgradeManager26requestUpgradeConfirmationE11UpgradeTypeRK7QString";
+    if (realCheckCtor && !legacyResultLayout(map)) {
+        error = "Nickel's legacy update result layout did not match.";
+        return false;
+    }
+#endif
+    if (!hasOptionalSelector(map, code(manager))) {
+        error = "Nickel's optional-update selector did not match.";
+        return false;
+    }
+    return calls(notes, request) && calls(notes, download) &&
+        calls("_ZN14UpgradeCommand29onUpgradeConfirmationAcceptedEv", download) &&
+        calls("_ZN37N3SettingsDeviceInformationController12onUpdateSyncEv", "_ZN13N3SyncManager10updateSyncEv");
+}
+
+Q_DECL_UNUSED bool hasMajorWorkflow() {
+    return realAvailableMajor || realCheckCtor || realWorkflow || realWorkflowNotes || realAcceptWorkflow;
+}
+
 bool installHooks(QString &error) {
     void *library = dlopen("libnickel.so.1.0.0", RTLD_LAZY | RTLD_NOLOAD);
     if (!library) {
@@ -649,14 +898,9 @@ bool installHooks(QString &error) {
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     void *(*sharedSetup)() = nullptr;
     const bool foundSetup = lookup(library, "_ZN24N3PostFTEWorkflowManager14sharedInstanceEv", sharedSetup);
-    if (foundSetup) {
-        // Initialization runs on the GUI thread after Home appears. Cache the
-        // existing singleton here so sync workers never construct GUI objects.
-        setupObject6 = sharedSetup();
-        setupInstance = &setupObject6;
-    }
 #else
-    const bool foundSetup = lookup(library, "_ZN24N3PostFTEWorkflowManager9_INSTANCEE", setupInstance);
+    setupInstance = static_cast<void **>(dlsym(library, "_ZN24N3PostFTEWorkflowManager9_INSTANCEE"));
+    const bool foundSetup = setupInstance && mapped(map->l_addr, setupInstance, sizeof(*setupInstance), PF_R);
 #endif
     const bool found = foundSetup &&
         lookup(library, "_ZN24N3PostFTEWorkflowManager19isWorkflowCompletedEv", setupCompleted) &&
@@ -699,8 +943,7 @@ bool installHooks(QString &error) {
         PREPARE("_ZN25Qt6UpgradeWorkflowManager13startWorkflowEv", workflow, realWorkflow, true) &&
         PREPARE("_ZN25Qt6UpgradeWorkflowManager13startWorkflowERK7QStringS2_S2_", workflowNotes, realWorkflowNotes, true) &&
         PREPARE("_ZN25Qt6UpgradeWorkflowManager27upgradeConfirmationAcceptedEv", workflowAccepted, realAcceptWorkflow, true);
-    const bool majorApi = realAvailableMajor || realCheckCtor || realWorkflow;
-    if (majorApi) {
+    if (hasMajorWorkflow()) {
         complete = complete && realAvailableMajor && realCheckCtor && realWorkflow && realWorkflowNotes && realAcceptWorkflow &&
             lookup(library, "_ZN18UpgradeCheckResultC1Ev", resultCtor) &&
             lookup(library, "_ZN18UpgradeCheckResultD1Ev", resultDtor) &&
@@ -719,6 +962,20 @@ bool installHooks(QString &error) {
         }
         return false;
     }
+    if (!validateUpdatePath(library, map, error)) {
+        dlclose(library);
+        return false;
+    }
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+    // Resolve the singleton on the GUI thread after validating all interfaces.
+    setupObject6 = sharedSetup();
+    if (!setupObject6) {
+        dlclose(library);
+        error = "Nickel's setup state is unavailable; updates remain stock.";
+        return false;
+    }
+    setupInstance = &setupObject6;
+#endif
     const long pageSize = sysconf(_SC_PAGESIZE);
     if (pageSize <= 0 || (pageSize & (pageSize - 1))) {
         dlclose(library);
@@ -807,20 +1064,6 @@ UpdatePolicySupport initializeUpdatePolicy(UpdatePolicy policy) {
         return support;
     }
 #ifdef NMM_UPDATE_HOOKS
-    QFile versionFile("/mnt/onboard/.kobo/version");
-    QByteArray version;
-    if (versionFile.open(QIODevice::ReadOnly)) {
-        version = versionFile.read(1024).trimmed().split(',').value(2);
-    }
-#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
-    const QList<QByteArray> verified = {"6.0.276679"};
-#else
-    const QList<QByteArray> verified = {"4.38.23697", "4.45.23697", "4.45.23792", "4.46.23836", "4.46.23852"};
-#endif
-    if (!verified.contains(version)) {
-        support = {false, "Update policies are unavailable on this firmware version."};
-        return support;
-    }
     QString error;
     if (!installHooks(error)) {
         support = {false, error};
