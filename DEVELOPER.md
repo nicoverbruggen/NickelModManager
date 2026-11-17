@@ -108,6 +108,8 @@ The manager uses the UI library in `src/ui/`: `Header` with Back, `PagedList`, `
 
 The About rows show “Label:” on the left and the value on the right, as Device information does. Update policies and restoration occupy the Settings tab. The manager and mod details use the same tab height. Mod settings keep sections together when they fit on one page. The save footer appears only while edits are pending.
 
+A disabled mod can be removed from its About tab or by holding its row. Both paths use the same confirmation.
+
 ## Firmware updates
 
 **Firmware 4.x keeps mods.** On 4.46.23836, `/etc/init.d/rcS` extracts `.kobo/KoboRoot.tgz` over `/` and the upgrade script flashes only the boot images. Under `/usr/local/Kobo/imageformats` the update package holds only `libkimg.so`, so mods stay where they are. The cached 4.38 to 4.46 packages hold the same single file. NickelModManager never puts a mod back on 4.x, because a mod missing there was removed on purpose.

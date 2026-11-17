@@ -284,6 +284,8 @@ void Manager::buildListPage() {
     listLayout->addWidget(card_);
     list_ = new PagedList(context(), "nmmMods", listPage);
     listLayout->addWidget(list_, 1);
+    emptyList_ = buildEmptyList(listPage);
+    listLayout->addWidget(emptyList_, 1);
     pages_->addWidget(listPage);
 }
 
@@ -668,9 +670,9 @@ void Manager::rebuild() {
     addSection("ENABLED MODS", enabled);
     addSection("DISABLED MODS", disabled);
     addSection("FAILED TO LOAD", failed);
-    if (rows_.isEmpty()) {
-        buildEmptyList(list_->content());
-    }
+    const bool empty = rows_.isEmpty();
+    emptyList_->setVisible(empty);
+    list_->setVisible(!empty);
     list_->setPage(page);
 }
 
@@ -758,19 +760,7 @@ QWidget *Manager::buildModRow(const Row &row, QWidget *parent) {
 }
 
 void Manager::showModActions(const Row &row) {
-    const bool available = !row.enabled && !row.loaded && !row.blocked && bool(forgotten);
-    const QString description = available
-                                    ? "Remove " + row.name +
-                                          " from Manage Mods and delete its saved copy."
-                                    : "Turn " + row.name +
-                                          " off and restart before permanently removing its saved copy.";
-    // The hold opens the confirmation itself. One explicit action completes
-    // removal; a second, nearly identical confirmation adds no information.
-    if (choose(this, context(), "Permanently remove mod", description,
-               "Its settings will be kept. To use the mod again, reinstall it.",
-               {{"Permanently remove", "nmmForgetConfirm", available},
-                {"Cancel", "nmmForgetCancel"}}) == 0 &&
-        forgotten) {
+    if (confirmModRemoval(this, context(), row.name, row.removable && bool(forgotten)) && forgotten) {
         forgotten(row.file);
     }
 }
@@ -819,21 +809,43 @@ QVBoxLayout *Manager::buildRowDetails(const Row &row, QWidget *frame) {
     return info;
 }
 
-void Manager::buildEmptyList(QWidget *parent) {
+QWidget *Manager::buildEmptyList(QWidget *parent) {
     auto *empty = new QWidget(parent);
-    auto *rows = new QVBoxLayout(empty);
-    rows->setContentsMargins(px(36), px(64), px(36), 0);
+    auto *outer = new QVBoxLayout(empty);
+    outer->setContentsMargins(px(36), px(24), px(36), px(24));
+    outer->addStretch(1);
+    auto *center = new QHBoxLayout;
+    center->setSpacing(0);
+    center->addStretch();
+    auto *group = new QWidget(empty);
+    group->setMaximumWidth(px(600));
+    center->addWidget(group, 1);
+    center->addStretch();
+    outer->addLayout(center);
+    outer->addStretch(1);
+
+    auto *rows = new QVBoxLayout(group);
+    rows->setContentsMargins(0, 0, 0, 0);
     rows->setSpacing(px(12));
-    rows->addWidget(text("No mods installed", empty, "nmmEmpty", "emptyTitle"));
+    auto *illustration = new QLabel(group);
+    illustration->setAlignment(Qt::AlignCenter);
+    illustration->setPixmap(icon(Icon::Blocks, palette().color(QPalette::WindowText), px(5)).pixmap(px(84), px(84)));
+    rows->addWidget(illustration);
+    rows->addSpacing(px(12));
+    auto *title = text("No mods installed", group, "nmmEmpty", "emptyTitle");
+    title->setAlignment(Qt::AlignCenter);
+    rows->addWidget(title);
 #if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
     const QString package = "Kobo.tgz";
 #else
     const QString package = "KoboRoot.tgz";
 #endif
-    rows->addWidget(text("Copy a mod's " + package + " into the .kobo folder on the eReader, eject it and "
-                         "restart. The mod appears here.",
-                         empty, {}, "secondary"));
-    list_->addWidget(empty);
+    auto *instructions = text("Copy a mod's " + package + " into the .kobo folder on the eReader, eject it and "
+                              "restart. The mod appears here.",
+                              group, {}, "secondary");
+    instructions->setAlignment(Qt::AlignCenter);
+    rows->addWidget(instructions);
+    return empty;
 }
 
 void Manager::showNotice(const QString &title, const QString &message, const QString &detail) {

@@ -59,6 +59,9 @@ class ChoiceAction final : public QPushButton {
         setFocusPolicy(Qt::NoFocus);
         setFixedHeight(context.px(128));
         context.apply(this, 30);
+        if (action.bold) {
+            setStyleSheet(styleSheet() + "font-weight:bold;");
+        }
         enableTouch(this);
     }
 
@@ -159,6 +162,14 @@ int choose(QWidget *parent, const Context &context, const QString &title, const 
     }
     dialog->exec();
     return chosen;
+}
+
+bool confirmModRemoval(QWidget *parent, const Context &context, const QString &name, bool available) {
+    const QString description = available ? "Remove " + name + " from Manage Mods and delete its saved copy. To use the mod again, reinstall it."
+                                          : "Turn " + name + " off and restart before permanently removing its saved copy.";
+    return choose(parent, context, "Permanently remove mod", description,
+                  {},
+                  {{"Permanently remove", "nmmForgetConfirm", available}, {"Cancel", "nmmForgetCancel", true, true}}) == 0;
 }
 
 QWidget *showStatus(QWidget *parent, const Context &context, const QString &title) {

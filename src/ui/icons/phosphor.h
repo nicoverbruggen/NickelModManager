@@ -376,5 +376,57 @@ static bool phosphorGeometry(const QString &name, QPainterPath &path) {
         path.closeSubpath();
         return true;
     }
+    if (name == QStringLiteral("trash")) {
+        path.setFillRule(Qt::WindingFill);
+        path.moveTo(216, 48);
+        path.lineTo(176, 48);
+        path.lineTo(176, 40);
+        path.cubicTo(176, 26.7451660041, 165.254833996, 16, 152, 16);
+        path.lineTo(104, 16);
+        path.cubicTo(90.7451660041, 16, 80, 26.7451660041, 80, 40);
+        path.lineTo(80, 48);
+        path.lineTo(40, 48);
+        path.cubicTo(35.5817220014, 48, 32, 51.5817220014, 32, 56);
+        path.cubicTo(32, 60.4182779986, 35.5817220014, 64, 40, 64);
+        path.lineTo(48, 64);
+        path.lineTo(48, 208);
+        path.cubicTo(48, 216.836555997, 55.1634440027, 224, 64, 224);
+        path.lineTo(192, 224);
+        path.cubicTo(200.836555997, 224, 208, 216.836555997, 208, 208);
+        path.lineTo(208, 64);
+        path.lineTo(216, 64);
+        path.cubicTo(220.418277999, 64, 224, 60.4182779986, 224, 56);
+        path.cubicTo(224, 51.5817220014, 220.418277999, 48, 216, 48);
+        path.closeSubpath();
+        path.moveTo(96, 40);
+        path.cubicTo(96, 35.5817220014, 99.5817220014, 32, 104, 32);
+        path.lineTo(152, 32);
+        path.cubicTo(156.418277999, 32, 160, 35.5817220014, 160, 40);
+        path.lineTo(160, 48);
+        path.lineTo(96, 48);
+        path.closeSubpath();
+        path.moveTo(192, 208);
+        path.lineTo(64, 208);
+        path.lineTo(64, 64);
+        path.lineTo(192, 64);
+        path.closeSubpath();
+        path.moveTo(112, 104);
+        path.lineTo(112, 168);
+        path.cubicTo(112, 172.418277999, 108.418277999, 176, 104, 176);
+        path.cubicTo(99.5817220014, 176, 96, 172.418277999, 96, 168);
+        path.lineTo(96, 104);
+        path.cubicTo(96, 99.5817220014, 99.5817220014, 96, 104, 96);
+        path.cubicTo(108.418277999, 96, 112, 99.5817220014, 112, 104);
+        path.closeSubpath();
+        path.moveTo(160, 104);
+        path.lineTo(160, 168);
+        path.cubicTo(160, 172.418277999, 156.418277999, 176, 152, 176);
+        path.cubicTo(147.581722001, 176, 144, 172.418277999, 144, 168);
+        path.lineTo(144, 104);
+        path.cubicTo(144, 99.5817220014, 147.581722001, 96, 152, 96);
+        path.cubicTo(156.418277999, 96, 160, 99.5817220014, 160, 104);
+        path.closeSubpath();
+        return true;
+    }
     return false;
 }

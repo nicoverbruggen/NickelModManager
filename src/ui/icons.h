@@ -3,7 +3,7 @@
 #include <QPainterPath>
 namespace NickelModManager {
 namespace ui {
-enum class Icon { Back, ChevronRight, ChevronLeft, Restart, Blocks, Lock, Info, Alert, Settings, Download, Ask, Shield, Restore };
+enum class Icon { Back, ChevronRight, ChevronLeft, Restart, Blocks, Lock, Info, Alert, Settings, Download, Ask, Shield, Restore, Trash };
 // iconPath returns the unscaled 24-unit path, also used by geometry tests.
 QPainterPath iconPath(Icon kind);
 // icon fits filled outline bounds to the requested size. The legacy stroke

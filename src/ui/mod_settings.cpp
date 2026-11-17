@@ -16,6 +16,8 @@ namespace {
 // same discard check, including when Nickel closes a child dialog.
 class SettingsPage final : public QDialog {
   public:
+    enum { RemoveMod = 2 };
+
     SettingsPage(QWidget *parent, const Context &context) : QDialog(parent), context_(context) {
         setWindowFlags(Qt::Dialog | Qt::FramelessWindowHint);
         setModal(true);
@@ -43,9 +45,9 @@ QLabel *label(const QString &value, QWidget *parent, const Context &context, int
 }
 } // namespace
 
-void showModSettings(QWidget *parent, const Context &context, const QString &name,
+bool showModSettings(QWidget *parent, const Context &context, const QString &name,
                      const ModDetails &details, const SettingsSnapshot &snapshot,
-                     const QString &unavailable,
+                     const QString &unavailable, bool removable,
                      const std::function<bool(const QHash<QString, bool> &, QString &)> &save) {
     SettingsPage page(parent, context);
     page.setObjectName("nmmModSettings");
@@ -187,6 +189,40 @@ void showModSettings(QWidget *parent, const Context &context, const QString &nam
             addParagraph("Creator: " + details.creator, 28);
         }
         addParagraph("Library: " + details.library, 25);
+        if (removable && page.edits.isEmpty()) {
+            auto *action = new QWidget(list->content());
+            auto *actionLayout = new QVBoxLayout(action);
+            actionLayout->setContentsMargins(0, px(28), 0, 0);
+            auto *remove = new ActionButton({}, context, action);
+            actionLayout->addWidget(remove);
+            remove->setObjectName("nmmRemoveMod");
+            remove->setAccessibleName("Permanently remove mod");
+            remove->setKind(ButtonKind::Quiet);
+            remove->setRules(Qt::TopEdge | Qt::BottomEdge);
+            auto *line = new QHBoxLayout(remove);
+            line->setContentsMargins(px(36), px(24), px(36), px(24));
+            line->setSpacing(px(20));
+            auto *trash = new QLabel(remove);
+            trash->setAttribute(Qt::WA_TransparentForMouseEvents);
+            trash->setStyleSheet("background:transparent;");
+            trash->setPixmap(icon(Icon::Trash, context.palette.color(QPalette::WindowText)).pixmap(px(34), px(34)));
+            line->addWidget(trash);
+            auto *caption = label(remove->accessibleName(), remove, context, 30);
+            caption->setAttribute(Qt::WA_TransparentForMouseEvents);
+            line->addWidget(caption, 1);
+            auto *chevron = new QLabel(remove);
+            chevron->setAttribute(Qt::WA_TransparentForMouseEvents);
+            chevron->setStyleSheet("background:transparent;");
+            chevron->setPixmap(icon(Icon::ChevronRight, context.palette.color(QPalette::WindowText))
+                                   .pixmap(px(28), px(28)));
+            line->addWidget(chevron);
+            QObject::connect(remove, &QPushButton::clicked, &page, [&] {
+                if (confirmModRemoval(&page, context, name, true)) {
+                    page.done(SettingsPage::RemoveMod);
+                }
+            });
+            list->addWidget(action);
+        }
         list->setPage(0);
     });
     QObject::connect(cancel, &QPushButton::clicked, &page, [&page] { page.reject(); });
@@ -205,7 +241,7 @@ void showModSettings(QWidget *parent, const Context &context, const QString &nam
     }
     updateStatus();
     page.showMaximized();
-    page.exec();
+    return page.exec() == SettingsPage::RemoveMod;
 }
 } // namespace ui
 } // namespace NickelModManager

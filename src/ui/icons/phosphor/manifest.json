@@ -47,6 +47,10 @@
       "sha256": "f70d6b20e08e028ab5b1714077681910a2431092cf7a23b82366ddaec554ab87"
     },
     {
+      "file": "trash.svg",
+      "sha256": "e6a830c0409f9e101e3695c981eef98427d39fd01f502b9cbd6900930b01f19c"
+    },
+    {
       "file": "warning.svg",
       "sha256": "047c8edbdfddb9f1692bbf56acc85b7e4649b567c60eb39470e98e4f9ddc6a2e"
     },

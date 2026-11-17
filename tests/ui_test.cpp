@@ -18,7 +18,7 @@ void checkBounds() {
     using namespace NickelModManager::ui;
     for (const auto kind : {Icon::Back, Icon::ChevronRight, Icon::ChevronLeft, Icon::Restart,
                             Icon::Blocks, Icon::Lock, Icon::Info, Icon::Alert, Icon::Settings,
-                            Icon::Download, Icon::Ask, Icon::Shield, Icon::Restore}) {
+                            Icon::Download, Icon::Ask, Icon::Shield, Icon::Restore, Icon::Trash}) {
         const auto path = iconPath(kind);
         CHECK(!path.isEmpty());
         CHECK(QRectF(0, 0, 24, 24).contains(path.boundingRect()));

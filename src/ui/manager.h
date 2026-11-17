@@ -29,6 +29,7 @@ struct Row {
     // when the user turns the mod on again, so the row stays in the Failed to
     // load section until the next start shows the result.
     bool blocked;
+    bool removable;
     ModDetails details;
 };
 // Manager displays the mod list and manager settings. The controller handles
@@ -85,7 +86,7 @@ class Manager final : public QDialog {
     bool confirmRetry(const Row &row);
     void showModActions(const Row &row);
     QVBoxLayout *buildRowDetails(const Row &row, QWidget *frame);
-    void buildEmptyList(QWidget *parent);
+    QWidget *buildEmptyList(QWidget *parent);
     void scheduleRebuild();
     void rebuild();
     void showPage(int page);
@@ -104,6 +105,7 @@ class Manager final : public QDialog {
     QLabel *built_, *library_, *software_, *restoreNote_, *restoreLock_;
     Toggle *restoreToggle_;
     PagedList *list_;
+    QWidget *emptyList_;
     ActionButton *restart_;
     QWidget *version_;
     QStackedWidget *managerTabs_;

@@ -122,6 +122,7 @@ QPainterPath iconPath(Icon kind) {
     case Icon::Ask: name = "question"; break;
     case Icon::Shield: name = "x"; break;
     case Icon::Restore: name = "arrow-u-up-left"; break;
+    case Icon::Trash: name = "trash"; break;
     default: break;
     }
     QPainterPath path;

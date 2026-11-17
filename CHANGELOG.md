@@ -3,6 +3,7 @@
 ## v0.5 (unreleased)
 
 - Make tabs taller, show mod settings actions only while editing, and clarify the No updates policy.
+- Add permanent removal to disabled mods’ About tabs and center the empty list message.
 - Restore the original Manage Mods icon in Nickel’s More menu.
 - Keep radio indicators transparent during row presses and match restoration text spacing to update policy rows.
 - Use plain divided action footers and lighter internal modal dividers, while keeping black modal outlines.

@@ -30,7 +30,7 @@ Copy the package to `.kobo/` on the eReader, safely eject it and disconnect USB.
 
 Tap **More** > **Manage Mods** to change which mods load at the next start. Mods are listed as enabled or disabled. A mod that failed to load has its own section, and turning it on again asks for confirmation first. NickelModManager itself cannot be turned off from this screen; its card at the top shows its version and details.
 
-To permanently remove a disabled mod from Manage Mods, press and hold its row, then confirm **Permanently remove**. This deletes the manager's saved copy and removes the row. The mod's own settings stay. If you just turned the mod off, restart first. To use the mod again, reinstall it.
+To permanently remove a disabled mod from Manage Mods, hold its row or select **Permanently remove mod** from its About tab. Then confirm **Permanently remove**. This deletes the manager's saved copy and removes the row. The mod's own settings stay. If you just turned the mod off, restart first. To use the mod again, reinstall it.
 
 Mods can optionally supply a `mod.manifest` file to show their version. Mods without one keep working as before.
 

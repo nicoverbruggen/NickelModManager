@@ -104,7 +104,8 @@ class Controller final : public QObject {
         const auto details = modDetails(adds_, store_->mods(), detectSoftwareFamily());
         for (const auto &mod : store_->mods()) {
             result.append({mod.file, mod.name, mod.note, fileSize(store_->librarySize(mod.file)),
-                           builtDate(mod), versions.value(mod.file), mod.enabled, mod.loaded, failedToLoad(mod), details.value(mod.file)});
+                           builtDate(mod), versions.value(mod.file), mod.enabled, mod.loaded, failedToLoad(mod),
+                           canRemoveMod(mod), details.value(mod.file)});
             if (!details.value(mod.file).name.isEmpty()) {
                 result.last().name = details.value(mod.file).name;
             }
@@ -116,6 +117,9 @@ class Controller final : public QObject {
     // keeps the row in its section until the next start shows whether it loads.
     bool failedToLoad(const NickelModManager::Mod &mod) const {
         return mod.parked || retrying_.contains(mod.file);
+    }
+    bool canRemoveMod(const Mod &mod) const {
+        return !mod.enabled && !mod.loaded && !failedToLoad(mod);
     }
     bool failedToLoad(const QString &file) const {
         for (const auto &mod : store_->mods()) {
@@ -210,7 +214,15 @@ class Controller final : public QObject {
         } else {
             readSettings(details, snapshot, unavailable);
         }
-        ui::showModSettings(manager_, manager_->context(), name, details, snapshot, unavailable,
+        bool removable = false;
+        for (const auto &mod : store_->mods()) {
+            if (mod.file == file) {
+                removable = canRemoveMod(mod);
+                break;
+            }
+        }
+        const bool removeRequested = ui::showModSettings(manager_, manager_->context(), name, details,
+                                                        snapshot, unavailable, removable,
                             [this, file, snapshot](const QHash<QString, bool> &edits, QString &error) {
             store_->rescan();
             const auto current = modDetails(adds_, store_->mods(), detectSoftwareFamily()).value(file);
@@ -235,6 +247,9 @@ class Controller final : public QObject {
             manager_->setPendingSettings(pendingSettings_.size());
             return true;
         });
+        if (removeRequested) {
+            forgetMod(file);
+        }
     }
 
     void showPolicy() {
