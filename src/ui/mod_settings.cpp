@@ -65,6 +65,7 @@ void showModSettings(QWidget *parent, const Context &context, const QString &nam
     settingsTab->setObjectName("nmmModSettingsTab");
     aboutTab->setObjectName("nmmModAboutTab");
     for (auto *tab : {settingsTab, aboutTab}) {
+        tab->setMinimumHeight(px(88));
         tab->setKind(ButtonKind::Quiet);
         tab->setRules(Qt::BottomEdge);
     }
@@ -77,7 +78,7 @@ void showModSettings(QWidget *parent, const Context &context, const QString &nam
     footer->setProperty("nmmFooterPanel", true);
     auto *foot = new QVBoxLayout(footer);
     foot->setContentsMargins(px(36), px(18), px(36), px(24));
-    auto *status = label("No unsaved changes", footer, context, 25);
+    auto *status = label({}, footer, context, 25);
     status->setAlignment(Qt::AlignCenter);
     status->setObjectName("nmmSettingsStatus");
     foot->addWidget(status);
@@ -97,11 +98,10 @@ void showModSettings(QWidget *parent, const Context &context, const QString &nam
                 ++restart;
             }
         }
-        status->setText(page.edits.isEmpty() ? "No unsaved changes" :
-                        restart ? QString("%1 setting%2 require%3 a restart after saving")
+        status->setText(restart ? QString("%1 setting%2 require%3 a restart after saving")
                             .arg(restart).arg(restart == 1 ? "" : "s").arg(restart == 1 ? "s" : "") :
                         "Changes apply after saving");
-        saveButton->setEnabled(!page.edits.isEmpty());
+        footer->setVisible(!page.edits.isEmpty());
     };
     const auto addParagraph = [&](const QString &value, int size) {
         auto *row = new QFrame(list->content());
@@ -115,7 +115,7 @@ void showModSettings(QWidget *parent, const Context &context, const QString &nam
             caption->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
         }
         line->addWidget(caption);
-        list->addWidget(row);
+        list->addWidget(row, size == 22);
     };
     const auto showSettings = [&] {
         list->clear();
@@ -140,9 +140,10 @@ void showModSettings(QWidget *parent, const Context &context, const QString &nam
                 auto *row = new QFrame(list->content());
                 row->setProperty("nmmRow", true);
                 auto *line = new QHBoxLayout(row);
-                line->setContentsMargins(px(36), px(24), px(36), px(24));
+                line->setContentsMargins(px(36), px(18), px(36), px(18));
                 line->setSpacing(px(24));
                 auto *copy = new QVBoxLayout;
+                copy->setSpacing(px(4));
                 copy->addWidget(label(setting.label, row, context, 30));
                 if (!setting.description.isEmpty()) {
                     copy->addWidget(label(setting.description, row, context, 25));
@@ -158,7 +159,8 @@ void showModSettings(QWidget *parent, const Context &context, const QString &nam
                 auto *toggle = new Toggle(setting.label, context, row);
                 toggle->setObjectName("setting:" + setting.key);
                 toggle->setChecked(page.edits.value(setting.key, original.value));
-                QObject::connect(toggle, &QCheckBox::clicked, &page, [&, setting, original](bool value) {
+                QObject::connect(toggle, &QCheckBox::clicked, &page, [&, setting, original, row](bool value) {
+                    list->keepVisible(row);
                     if (original.valid && value == original.value) {
                         page.edits.remove(setting.key);
                     } else {
@@ -168,7 +170,6 @@ void showModSettings(QWidget *parent, const Context &context, const QString &nam
                 });
                 line->addWidget(toggle, 0, Qt::AlignTop);
                 list->addWidget(row);
-
             }
         }
         list->setPage(0);

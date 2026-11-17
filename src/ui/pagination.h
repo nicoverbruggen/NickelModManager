@@ -28,7 +28,8 @@ class PagedList final : public QWidget {
   public:
     PagedList(const Context &context, const QString &prefix, QWidget *parent = nullptr);
     void clear();
-    void addWidget(QWidget *row);
+    // A section heading starts a group that stays on one page if it fits.
+    void addWidget(QWidget *row, bool startsSection = false);
     void setPage(int page);
     // Shows the page holding this row, also after the list is paged again
     // because its height changed. Turning a page by hand releases it.
@@ -48,6 +49,7 @@ class PagedList final : public QWidget {
     // No member defaults: GCC 4.9 cannot brace-initialise such a struct.
     struct Item {
         QPointer<QWidget> widget;
+        bool startsSection;
     };
     void paginate();
     void place();

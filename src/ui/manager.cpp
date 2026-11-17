@@ -228,6 +228,7 @@ void Manager::applyAppearance(const QFont &uiFont) {
         "QLabel[nmmRole=status]{font-size:" + size(26) + ";font-weight:600;}" +
         "QLabel[nmmRole=secondary]{font-size:" + size(28) + ";}" +
         "QLabel[nmmRole=caption]{font-size:" + size(25) + ";}" +
+        "QLabel#nmmPolicyScope{color:#666666;}" +
         "QLabel[nmmRole=section]{font-size:" + size(22) + ";}" +
         "QFrame[nmmPressed=true]{background:#dddddd;}" +
         "QFrame[nmmRow=true] QLabel,QFrame[nmmSection=true] QLabel{background:transparent;}" +
@@ -299,6 +300,7 @@ void Manager::buildManagerPage() {
     settingsTab_->setObjectName("nmmSettingsTab");
     aboutTab_->setObjectName("nmmAboutTab");
     for (auto *tab : {settingsTab_, aboutTab_}) {
+        tab->setMinimumHeight(px(88));
         tab->setKind(ButtonKind::Quiet);
         tab->setRules(Qt::BottomEdge);
     }
@@ -376,7 +378,8 @@ QWidget *Manager::buildUpdateSettings(QWidget *parent) {
     const QStringList descriptions{
         "Automatic updates install normally.",
         "Ask before installing automatic updates.",
-        "Decline offers. A manual check allows one prompt."};
+        "Don't allow updates. Sync may stop working if it requires a system update. "
+        "You can still manually search for updates in Settings."};
     const QVector<Icon> icons{Icon::Download, Icon::Ask, Icon::Shield};
     const QStringList policies{"stock", "ask", "none"};
     for (int i = 0; i < titles.size(); ++i) {

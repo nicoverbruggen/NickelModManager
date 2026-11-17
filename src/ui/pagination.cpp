@@ -100,10 +100,10 @@ int PagedList::anchorPage() const {
     }
     return -1;
 }
-void PagedList::addWidget(QWidget *row) {
+void PagedList::addWidget(QWidget *row, bool startsSection) {
     row->setParent(content_);
     row->hide();
-    items_.append({row});
+    items_.append({row, startsSection});
 }
 void PagedList::setPage(int page) {
     if (pages_.isEmpty()) {
@@ -147,8 +147,24 @@ void PagedList::paginate() {
         while (index < items_.size()) {
             const int start = index;
             int used = 0;
-            while (index < items_.size() &&
-                   (index == start || used + heights[index] <= available)) {
+            while (index < items_.size()) {
+                int required = heights[index];
+                if (items_[index].startsSection) {
+                    int sectionHeight = required;
+                    int end = index + 1;
+                    while (end < items_.size() && !items_[end].startsSection) {
+                        sectionHeight += heights[end++];
+                    }
+                    if (sectionHeight <= available) {
+                        required = sectionHeight;
+                    } else if (index + 1 < end && required + heights[index + 1] <= available) {
+                        // A large section can span pages. Keep its heading with the first row.
+                        required += heights[index + 1];
+                    }
+                }
+                if (index != start && used + required > available) {
+                    break;
+                }
                 used += heights[index];
                 ++index;
             }
