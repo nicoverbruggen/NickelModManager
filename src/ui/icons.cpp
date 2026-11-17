@@ -31,10 +31,38 @@ QPainterPath restartPath() {
     stroke.setJoinStyle(Qt::RoundJoin);
     return stroke.createStroke(path);
 }
+// Keep the original Manage Mods glyph in Nickel's More menu.
+QPainterPath blocksPath() {
+    QPainterPath p;
+    p.moveTo(10, 22);
+    p.lineTo(10, 7);
+    p.cubicTo(10, 6.44771525017, 9.55228474983, 6, 9, 6);
+    p.lineTo(4, 6);
+    p.cubicTo(2.89543050034, 6, 2, 6.89543050034, 2, 8);
+    p.lineTo(2, 20);
+    p.cubicTo(2, 21.1045694997, 2.89543050034, 22, 4, 22);
+    p.lineTo(16, 22);
+    p.cubicTo(17.1045694997, 22, 18, 21.1045694997, 18, 20);
+    p.lineTo(18, 15);
+    p.cubicTo(18, 14.4477152502, 17.5522847498, 14, 17, 14);
+    p.lineTo(2, 14);
+    p.moveTo(15, 2);
+    p.lineTo(21, 2);
+    p.cubicTo(21.5522847498, 2, 22, 2.44771525017, 22, 3);
+    p.lineTo(22, 9);
+    p.cubicTo(22, 9.55228474983, 21.5522847498, 10, 21, 10);
+    p.lineTo(15, 10);
+    p.cubicTo(14.4477152502, 10, 14, 9.55228474983, 14, 9);
+    p.lineTo(14, 3);
+    p.cubicTo(14, 2.44771525017, 14.4477152502, 2, 15, 2);
+    p.closeSubpath();
+    return p;
+}
+
 class VectorIcon final : public QIconEngine {
   public:
-    VectorIcon(Icon kind, QColor color) : kind_(kind), color_(color) {}
-    QIconEngine *clone() const override { return new VectorIcon(kind_, color_); }
+    VectorIcon(Icon kind, QColor color, qreal stroke) : kind_(kind), color_(color), stroke_(stroke) {}
+    QIconEngine *clone() const override { return new VectorIcon(kind_, color_, stroke_); }
     QPixmap pixmap(const QSize &size, QIcon::Mode mode, QIcon::State state) override {
         QPixmap result(size);
         result.fill(Qt::transparent);
@@ -46,14 +74,22 @@ class VectorIcon final : public QIconEngine {
         const QPainterPath path = iconPath(kind_);
         const QRectF bounds = path.boundingRect();
         const qreal side = qMin(rect.width(), rect.height());
-        const qreal scale = side / qMax<qreal>(1, qMax(bounds.width(), bounds.height()));
+        const bool blocks = kind_ == Icon::Blocks;
+        const qreal stroke = blocks ? (stroke_ > 0 ? stroke_ : qMax<qreal>(1.5, side / 9.0)) : 0;
+        const qreal scale = qMax<qreal>(1, side - stroke) /
+                            qMax<qreal>(1, qMax(bounds.width(), bounds.height()));
         painter->save();
         painter->setRenderHint(QPainter::Antialiasing);
         painter->translate(QRectF(rect).center());
         painter->scale(scale, scale);
         painter->translate(-bounds.center());
-        painter->setPen(Qt::NoPen);
-        painter->setBrush(color_);
+        if (blocks) {
+            painter->setPen(QPen(color_, stroke / scale, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+            painter->setBrush(Qt::NoBrush);
+        } else {
+            painter->setPen(Qt::NoPen);
+            painter->setBrush(color_);
+        }
         if (mode == QIcon::Disabled) { painter->setOpacity(.4); }
         painter->drawPath(path);
         painter->restore();
@@ -61,11 +97,13 @@ class VectorIcon final : public QIconEngine {
   private:
     Icon kind_;
     QColor color_;
+    qreal stroke_;
 };
 } // namespace
 
 QPainterPath iconPath(Icon kind) {
     if (kind == Icon::Restart) { return restartPath(); }
+    if (kind == Icon::Blocks) { return blocksPath(); }
     if (kind == Icon::ChevronLeft) {
         QTransform mirror;
         mirror.translate(24, 0);
@@ -76,7 +114,6 @@ QPainterPath iconPath(Icon kind) {
     switch (kind) {
     case Icon::Back: name = "arrow-left"; break;
     case Icon::ChevronRight: name = "caret-right"; break;
-    case Icon::Blocks: name = "squares-four"; break;
     case Icon::Lock: name = "lock"; break;
     case Icon::Info: name = "info"; break;
     case Icon::Alert: name = "warning"; break;
@@ -95,8 +132,7 @@ QPainterPath iconPath(Icon kind) {
 }
 
 QIcon icon(Icon kind, const QColor &color, qreal stroke) {
-    Q_UNUSED(stroke);
-    return QIcon(new VectorIcon(kind, color));
+    return QIcon(new VectorIcon(kind, color, stroke));
 }
 const char *iconNotice() { return lucideNotice; }
 } // namespace ui
